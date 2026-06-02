@@ -84,10 +84,18 @@
     <!-- ── Main area ── -->
     <div class="main-area">
       <header class="main-header">
-        <div class="page-breadcrumb">
-          <span>Workspace</span>
-          <span style="color:var(--border);">/</span>
-          <span class="crumb-active">{{ pageTitle }}</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <!-- Mobile hamburger -->
+          <el-button
+            class="mobile-header-btn"
+            :icon="Menu"
+            circle plain size="small"
+            style="flex-shrink:0;"
+            @click="mobileMenuOpen = true"
+          />
+          <div class="page-breadcrumb">
+            <span class="crumb-active">{{ pageTitle }}</span>
+          </div>
         </div>
         <div class="header-actions">
           <el-tag v-if="saving" type="info" size="small" effect="plain">
@@ -146,13 +154,65 @@
         />
       </main>
     </div>
+
+    <!-- ── Mobile bottom nav ── -->
+    <nav class="mobile-nav">
+      <button :class="['m-nav-item', { active: view === 'dashboard' }]"  @click="switchView('dashboard')">
+        <span class="m-icon">🏠</span><span>Home</span>
+      </button>
+      <button :class="['m-nav-item', { active: view === 'plan' }]"       @click="switchView('plan')">
+        <span class="m-icon">📋</span><span>Plan</span>
+      </button>
+      <button :class="['m-nav-item', { active: view === 'log' }]"        @click="switchView('log')">
+        <span class="m-icon">💪</span><span>Log</span>
+      </button>
+      <button :class="['m-nav-item', { active: view === 'history' }]"    @click="switchView('history')">
+        <span class="m-icon">📅</span><span>History</span>
+      </button>
+      <button class="m-nav-item" @click="mobileMenuOpen = true">
+        <span class="m-icon">☰</span><span>More</span>
+      </button>
+    </nav>
+
+    <!-- ── Mobile full-nav drawer ── -->
+    <template v-if="mobileMenuOpen">
+      <div class="mobile-menu-overlay" @click="mobileMenuOpen = false" />
+      <div class="mobile-menu-panel">
+        <div style="padding:0 16px 16px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:8px;">
+          <div style="font-size:17px; font-weight:800; color:#fff;">🏋️ Workout Logger</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:2px;">6-day split · {{ weightGoal }} kg</div>
+        </div>
+        <nav style="padding:0 8px; flex:1;">
+          <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; padding:10px 8px 4px;">Overview</div>
+          <button v-for="item in allNavItems" :key="item.view"
+            :class="['nav-item', { active: view === item.view }]"
+            style="width:100%;"
+            @click="switchView(item.view); mobileMenuOpen = false"
+          >
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+          </button>
+        </nav>
+        <div style="padding:12px 16px; border-top:1px solid rgba(255,255,255,0.08);">
+          <div class="drive-status" style="margin-bottom:8px;">
+            <div class="drive-dot" :style="{ background: driveConnected ? '#10b981' : '#f59e0b' }" />
+            <div class="drive-info">
+              <div class="drive-label">{{ driveConnected ? 'Google Drive' : 'Offline' }}</div>
+            </div>
+          </div>
+          <button class="nav-item" style="width:100%;" @click="handleCmd('signout'); mobileMenuOpen = false" :disabled="!driveConnected">
+            <span class="nav-icon">🚪</span><span>Sign out</span>
+          </button>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Loading, Refresh, SwitchButton, Key, Download } from '@element-plus/icons-vue';
+import { Loading, Refresh, SwitchButton, Key, Download, Menu } from '@element-plus/icons-vue';
 
 import AuthScreen     from './components/AuthScreen.vue';
 import Dashboard      from './components/Dashboard.vue';
@@ -214,9 +274,20 @@ const sessions     = ref([]);
 const bodyWeights  = ref([]);
 const weightGoal   = ref(74);
 const templates    = ref([]);
-const view         = ref('dashboard');
+const view              = ref('dashboard');
 const editingSession    = ref(null);
 const preloadedTemplate = ref(null);
+const mobileMenuOpen    = ref(false);
+
+const allNavItems = [
+  { view: 'dashboard',  icon: '🏠', label: 'Dashboard' },
+  { view: 'plan',       icon: '📋', label: 'Weekly Plan' },
+  { view: 'log',        icon: '💪', label: 'Log Workout' },
+  { view: 'history',    icon: '📅', label: 'History' },
+  { view: 'templates',  icon: '📄', label: 'Templates' },
+  { view: 'bodyweight', icon: '⚖️', label: 'Body Weight' },
+  { view: 'records',    icon: '🏆', label: 'Personal Records' },
+];
 
 // ── Drive file IDs ─────────────────────────────────────────────────────────
 const driveIds = { plan: null, log: null, weight: null, templates: null };
