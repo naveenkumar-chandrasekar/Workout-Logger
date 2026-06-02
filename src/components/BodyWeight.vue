@@ -5,7 +5,7 @@
     <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; gap:16px;">
       <div>
         <div class="page-title">Body Weight</div>
-        <div class="page-subtitle">Track your weight over time · Goal: maintain / recompose at 74 kg</div>
+        <div class="page-subtitle">Track your weight over time · Goal: {{ goal }} kg</div>
       </div>
     </div>
 
@@ -115,9 +115,9 @@
                 </td>
                 <td style="text-align:center;">
                   <span
-                    :class="['bw-delta', entry.weight > 74 ? 'up' : entry.weight < 74 ? 'down' : 'flat']"
+                    :class="['bw-delta', entry.weight > goal ? 'up' : entry.weight < goal ? 'down' : 'flat']"
                   >
-                    {{ entry.weight > 74 ? '+' : '' }}{{ (entry.weight - 74).toFixed(1) }} kg
+                    {{ entry.weight > goal ? '+' : '' }}{{ (entry.weight - goal).toFixed(1) }} kg
                   </span>
                 </td>
                 <td style="text-align:right;">
@@ -184,12 +184,24 @@
               Save Entry
             </el-button>
 
+            <!-- Goal setting -->
+            <div>
+              <div class="bw-field-label">Target weight (kg)</div>
+              <el-input-number
+                :model-value="goal"
+                :min="30" :max="200" :step="0.5" :precision="1"
+                controls-position="right"
+                style="width:100%;"
+                @change="v => goal = v"
+              />
+            </div>
+
             <!-- Goal indicator -->
             <div class="goal-box">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span style="font-size:12px; font-weight:700; color:var(--text-2);">Goal: 74 kg</span>
+                <span style="font-size:12px; font-weight:700; color:var(--text-2);">Goal: {{ goal }} kg</span>
                 <span style="font-size:12px; color:var(--text-3);">
-                  {{ latest ? Math.abs(latest.weight - 74).toFixed(1) + ' kg ' + (latest.weight > 74 ? 'above' : latest.weight < 74 ? 'below' : 'on target') : '—' }}
+                  {{ latest ? Math.abs(latest.weight - goal).toFixed(1) + ' kg ' + (latest.weight > goal ? 'above' : latest.weight < goal ? 'below' : '✓ on target') : '—' }}
                 </span>
               </div>
               <div style="background:var(--border); border-radius:99px; height:8px; overflow:hidden; position:relative;">
@@ -199,9 +211,9 @@
                 />
               </div>
               <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:10px; color:var(--text-3);">
-                <span>60 kg</span>
-                <span>74 kg ✓</span>
-                <span>90 kg</span>
+                <span>{{ goalMin }} kg</span>
+                <span>{{ goal }} kg ✓</span>
+                <span>{{ goalMax }} kg</span>
               </div>
             </div>
           </div>
@@ -216,8 +228,8 @@ import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Delete } from '@element-plus/icons-vue';
 
-const props  = defineProps({ modelValue: Array });
-const emit   = defineEmits(['update:modelValue']);
+const props  = defineProps({ modelValue: Array, goal: { type: Number, default: 74 } });
+const emit   = defineEmits(['update:modelValue', 'update:goal']);
 
 // ── Local state ────────────────────────────────────────────────────────────
 const weights    = computed(() => props.modelValue || []);
@@ -230,7 +242,11 @@ const ranges      = [
   { label: 'All', val: 9999 },
 ];
 
-const form = ref({ date: new Date().toISOString().slice(0, 10), weight: 74.0, note: '' });
+const goal    = computed({ get: () => props.goal, set: v => emit('update:goal', v) });
+const goalMin = computed(() => Math.round(props.goal - 10));
+const goalMax = computed(() => Math.round(props.goal + 10));
+
+const form = ref({ date: new Date().toISOString().slice(0, 10), weight: props.goal, note: '' });
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function formatDate(d) {
@@ -278,8 +294,10 @@ const avg30 = computed(() => rollingAvg(30));
 
 const goalProgress = computed(() => {
   if (!latest.value) return 50;
-  const w = latest.value.weight;
-  return Math.min(100, Math.max(0, ((w - 60) / (90 - 60)) * 100));
+  const w   = latest.value.weight;
+  const min = goalMin.value;
+  const max = goalMax.value;
+  return Math.min(100, Math.max(0, ((w - min) / (max - min)) * 100));
 });
 
 // ── Chart data ─────────────────────────────────────────────────────────────
@@ -350,8 +368,8 @@ async function renderChart() {
           fill: true,
         },
         {
-          label: '74 kg target',
-          data: Array(data.length).fill(74),
+          label: `${props.goal} kg target`,
+          data: Array(data.length).fill(props.goal),
           borderColor: '#10b981',
           borderWidth: 1.5,
           borderDash: [6, 4],
