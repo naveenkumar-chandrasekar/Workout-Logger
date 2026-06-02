@@ -255,27 +255,30 @@ async function boot(cid) {
 
     if (localStorage.getItem('wl_signed_in') === '1') {
       loadingMsg.value = 'Restoring session…';
-      try {
-        await Drive.requestToken(true); // silent — no popup
+
+      // Restore the access token directly from sessionStorage — no GIS call,
+      // no network, no popup whatsoever.
+      if (Drive.restoreToken()) {
         driveConnected.value = true;
 
-        // ── Cache hit: load from sessionStorage, skip Drive download ──────
         if (cacheIsFull()) {
-          loadingMsg.value = 'Loading from cache…';
+          // Best case: token valid + data cached → instant, nothing downloaded
           restoreFromCache();
           appState.value = 'app';
           return;
         }
 
-        // ── Cache miss: download from Drive, then populate cache ───────────
+        // Token valid but cache cold (e.g. first refresh or new tab)
         await loadAllFromDrive();
         appState.value = 'app';
         return;
-      } catch (e) {
-        console.warn('Silent sign-in failed:', e.message);
-        localStorage.removeItem('wl_signed_in');
-        cacheClear();
       }
+
+      // Token expired (>1 hour since last sign-in) → show sign-in screen.
+      // We do NOT call requestToken here — that's what causes the popup.
+      localStorage.removeItem('wl_signed_in');
+      cacheClear();
+      authError.value = 'Your session expired. Please sign in again.';
     }
 
     appState.value = 'auth';
@@ -298,8 +301,8 @@ async function handleSignIn() {
   authLoading.value = true;
   authError.value   = '';
   try {
-    await Drive.requestToken(false); // full consent on first sign-in
-    localStorage.setItem('wl_signed_in', '1'); // remember for future refreshes
+    await Drive.requestToken(); // shows popup once; token saved inside
+    localStorage.setItem('wl_signed_in', '1');
     driveConnected.value = true;
     await loadAllFromDrive();
     appState.value = 'app';
@@ -509,7 +512,7 @@ async function handleCmd(cmd) {
 }
 
 function forceSignOut(expired = false) {
-  Drive.signOut();
+  Drive.signOut(); // also calls clearStoredToken() inside
   localStorage.removeItem('wl_signed_in');
   cacheClear();
   driveConnected.value = false;
