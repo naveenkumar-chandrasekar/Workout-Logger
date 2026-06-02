@@ -1,8 +1,6 @@
 <template>
-  <SetupScreen v-if="appState === 'setup'" @save="onClientIdSaved" @skip="goOffline" />
-
   <AuthScreen
-    v-else-if="appState === 'auth'"
+    v-if="appState === 'auth'"
     :loading="authLoading"
     :error="authError"
     @signin="handleSignIn"
@@ -77,7 +75,6 @@
               <el-dropdown-item command="sync"    :disabled="!driveConnected"><el-icon><Refresh /></el-icon> Sync Drive</el-dropdown-item>
               <el-dropdown-item command="export"  divided><el-icon><Download /></el-icon> Export Excel</el-dropdown-item>
               <el-dropdown-item command="signout" :disabled="!driveConnected" divided><el-icon><SwitchButton /></el-icon> Sign out</el-dropdown-item>
-              <el-dropdown-item command="setup"   divided><el-icon><Key /></el-icon> Change Client ID</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -157,7 +154,6 @@ import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Loading, Refresh, SwitchButton, Key, Download } from '@element-plus/icons-vue';
 
-import SetupScreen    from './components/SetupScreen.vue';
 import AuthScreen     from './components/AuthScreen.vue';
 import Dashboard      from './components/Dashboard.vue';
 import PlanView       from './components/PlanView.vue';
@@ -241,10 +237,15 @@ const todaySessions = computed(() =>
 );
 
 // ── Boot ───────────────────────────────────────────────────────────────────
-// Only the OAuth client ID lives in localStorage — it's configuration, not data
-const clientId = localStorage.getItem('wl_clientId');
+// Client ID comes from the environment variable — set in .env.local for dev
+// and in Vercel → Settings → Environment Variables for production.
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 if (clientId) boot(clientId);
-else appState.value = 'setup';
+else {
+  // No client ID configured — show auth screen with an error
+  authError.value = 'VITE_GOOGLE_CLIENT_ID is not set. Add it to .env.local or Vercel environment variables.';
+  appState.value = 'auth';
+}
 
 async function boot(cid) {
   appState.value = 'loading';
@@ -289,7 +290,6 @@ async function boot(cid) {
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
-function onClientIdSaved(cid) { boot(cid); }
 
 function goOffline() {
   driveConnected.value = false;
