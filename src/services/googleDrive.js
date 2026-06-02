@@ -34,14 +34,18 @@ export function initGis(clientId) {
   });
 }
 
-export function requestToken() {
+/**
+ * Request an OAuth token.
+ * silent=true → no popup, uses existing Google session (works after first consent).
+ * silent=false → shows full consent screen on first use, account picker on repeat.
+ */
+export function requestToken(silent = false) {
   return new Promise((resolve, reject) => {
     tokenClient.callback = (resp) => {
       if (resp.error) { reject(new Error(resp.error_description || resp.error)); return; }
       resolve(resp);
     };
-    const hasToken = window.gapi.client.getToken() !== null;
-    tokenClient.requestAccessToken({ prompt: hasToken ? '' : 'consent' });
+    tokenClient.requestAccessToken({ prompt: silent ? '' : 'consent' });
   });
 }
 

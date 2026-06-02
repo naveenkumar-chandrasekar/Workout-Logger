@@ -177,6 +177,33 @@ import {
 } from './services/workoutData.js';
 import { exportToExcel } from './composables/useExport.js';
 
+// ── Session cache (sessionStorage) ────────────────────────────────────────
+// Survives page refreshes, clears automatically when the tab is closed.
+// Drive is always the source of truth; cache just avoids re-downloading on refresh.
+const CACHE = 'wl_cache_';
+
+function cacheWrite(key, data) {
+  try { sessionStorage.setItem(CACHE + key, JSON.stringify(data)); } catch { /* quota */ }
+}
+
+function cacheRead(key) {
+  try {
+    const raw = sessionStorage.getItem(CACHE + key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function cacheClear() {
+  Object.keys(sessionStorage)
+    .filter(k => k.startsWith(CACHE))
+    .forEach(k => sessionStorage.removeItem(k));
+}
+
+function cacheIsFull() {
+  return ['plan', 'log', 'weight', 'templates', 'driveIds']
+    .every(k => sessionStorage.getItem(CACHE + k) !== null);
+}
+
 // ── App state ──────────────────────────────────────────────────────────────
 const appState    = ref('setup');
 const authLoading = ref(false);
@@ -221,10 +248,36 @@ else appState.value = 'setup';
 
 async function boot(cid) {
   appState.value = 'loading';
-  loadingMsg.value = 'Initialising Google APIs…';
+  loadingMsg.value = 'Connecting to Google…';
   try {
     await Drive.initGapiClient();
     Drive.initGis(cid);
+
+    if (localStorage.getItem('wl_signed_in') === '1') {
+      loadingMsg.value = 'Restoring session…';
+      try {
+        await Drive.requestToken(true); // silent — no popup
+        driveConnected.value = true;
+
+        // ── Cache hit: load from sessionStorage, skip Drive download ──────
+        if (cacheIsFull()) {
+          loadingMsg.value = 'Loading from cache…';
+          restoreFromCache();
+          appState.value = 'app';
+          return;
+        }
+
+        // ── Cache miss: download from Drive, then populate cache ───────────
+        await loadAllFromDrive();
+        appState.value = 'app';
+        return;
+      } catch (e) {
+        console.warn('Silent sign-in failed:', e.message);
+        localStorage.removeItem('wl_signed_in');
+        cacheClear();
+      }
+    }
+
     appState.value = 'auth';
   } catch (e) {
     console.warn('Drive init failed, going offline:', e.message);
@@ -245,7 +298,8 @@ async function handleSignIn() {
   authLoading.value = true;
   authError.value   = '';
   try {
-    await Drive.requestToken();
+    await Drive.requestToken(false); // full consent on first sign-in
+    localStorage.setItem('wl_signed_in', '1'); // remember for future refreshes
     driveConnected.value = true;
     await loadAllFromDrive();
     appState.value = 'app';
@@ -282,6 +336,7 @@ async function loadAllFromDrive() {
       const buf = await Drive.downloadFile(file.id);
       parseAndStore(f.key, buf);
     } catch (e) {
+      if (isSessionExpired(e)) { forceSignOut(true); return; }
       ElMessage.error(`Failed to load ${f.name}: ${e.message}`);
     }
   }
@@ -298,16 +353,40 @@ function getDefaultFileData(key) {
 function parseAndStore(key, buf) {
   if (key === 'plan') {
     const parsed = parsePlanXlsx(buf);
-    if (parsed) plan.value = parsed;
+    if (parsed) { plan.value = parsed; cacheWrite('plan', parsed); }
   } else if (key === 'log') {
-    sessions.value = parseLogXlsx(buf);
+    const s = parseLogXlsx(buf);
+    sessions.value = s;
+    cacheWrite('log', s);
   } else if (key === 'weight') {
     const { weights, goal } = parseBodyWeightXlsx(buf);
     bodyWeights.value = weights;
     weightGoal.value  = goal;
+    cacheWrite('weight', { weights, goal });
   } else if (key === 'templates') {
-    templates.value = parseTemplatesXlsx(buf);
+    const t = parseTemplatesXlsx(buf);
+    templates.value = t;
+    cacheWrite('templates', t);
   }
+  // persist drive file IDs so cache knows where to save
+  cacheWrite('driveIds', driveIds);
+}
+
+function restoreFromCache() {
+  const cachedPlan = cacheRead('plan');
+  if (cachedPlan) plan.value = cachedPlan;
+
+  const cachedLog = cacheRead('log');
+  if (cachedLog) sessions.value = cachedLog;
+
+  const cachedWeight = cacheRead('weight');
+  if (cachedWeight) { bodyWeights.value = cachedWeight.weights; weightGoal.value = cachedWeight.goal; }
+
+  const cachedTemplates = cacheRead('templates');
+  if (cachedTemplates) templates.value = cachedTemplates;
+
+  const cachedIds = cacheRead('driveIds');
+  if (cachedIds) Object.assign(driveIds, cachedIds);
 }
 
 // ── Save to Drive ──────────────────────────────────────────────────────────
@@ -315,18 +394,28 @@ async function saveToDrive(key, data) {
   if (!driveConnected.value) return;
   saving.value = true;
   try {
+    const names = { plan: 'workout_plan.xlsx', log: 'workout_log.xlsx', weight: 'body_weight.xlsx', templates: 'workout_templates.xlsx' };
     if (!driveIds[key]) {
-      const names = { plan: 'workout_plan.xlsx', log: 'workout_log.xlsx', weight: 'body_weight.xlsx', templates: 'workout_templates.xlsx' };
       const file = await Drive.createFile(names[key], new Uint8Array(data));
       driveIds[key] = file.id;
+      cacheWrite('driveIds', driveIds);
     } else {
       await Drive.updateFile(driveIds[key], new Uint8Array(data));
     }
   } catch (e) {
-    ElMessage.error('Drive save failed: ' + e.message);
+    if (isSessionExpired(e)) {
+      forceSignOut(true);
+    } else {
+      ElMessage.error('Drive save failed: ' + e.message);
+    }
   } finally {
     saving.value = false;
   }
+}
+
+function isSessionExpired(err) {
+  const msg = err?.message || '';
+  return msg.includes('401') || msg.includes('403') || msg.includes('invalid_token') || msg.includes('Token has been expired');
 }
 
 // ── Event handlers ─────────────────────────────────────────────────────────
@@ -337,8 +426,9 @@ function switchView(v) {
 
 async function onPlanUpdated(newPlan) {
   plan.value = newPlan;
+  cacheWrite('plan', newPlan);
   await saveToDrive('plan', buildPlanXlsx(newPlan));
-  ElMessage.success('Plan saved to Drive');
+  ElMessage.success('Plan saved');
 }
 
 async function onSessionSaved(session) {
@@ -347,12 +437,14 @@ async function onSessionSaved(session) {
   if (idx >= 0) updated[idx] = session; else updated.push(session);
   sessions.value = updated;
   editingSession.value = null;
+  cacheWrite('log', updated);
   await saveToDrive('log', buildLogXlsx(updated));
 }
 
 async function onDeleteSession(id) {
   const updated = sessions.value.filter(s => s.id !== id);
   sessions.value = updated;
+  cacheWrite('log', updated);
   await saveToDrive('log', buildLogXlsx(updated));
   ElMessage.success('Session deleted');
 }
@@ -364,16 +456,19 @@ function onEditSession(session) {
 
 async function onBodyWeightsUpdated(updated) {
   bodyWeights.value = updated;
+  cacheWrite('weight', { weights: updated, goal: weightGoal.value });
   await saveToDrive('weight', buildBodyWeightXlsx(updated, weightGoal.value));
 }
 
 async function onGoalUpdated(newGoal) {
   weightGoal.value = newGoal;
+  cacheWrite('weight', { weights: bodyWeights.value, goal: newGoal });
   await saveToDrive('weight', buildBodyWeightXlsx(bodyWeights.value, newGoal));
 }
 
 async function onTemplatesUpdated(updated) {
   templates.value = updated;
+  cacheWrite('templates', updated);
   await saveToDrive('templates', buildTemplatesXlsx(updated));
 }
 
@@ -393,29 +488,43 @@ async function onSaveTemplate(tplData) {
   };
   const updated = [...templates.value, newTpl];
   templates.value = updated;
+  cacheWrite('templates', updated);
   await saveToDrive('templates', buildTemplatesXlsx(updated));
 }
 
 async function handleCmd(cmd) {
   if (cmd === 'sync') {
-    ElMessage.info('Syncing…');
+    cacheClear(); // force re-download from Drive
+    ElMessage.info('Syncing from Drive…');
     await loadAllFromDrive();
     appState.value = 'app';
-    ElMessage.success('Synced from Drive!');
+    ElMessage.success('Synced!');
   } else if (cmd === 'export') {
     exportToExcel({ sessions: sessions.value, bodyWeights: bodyWeights.value, dateFrom: null, dateTo: null });
   } else if (cmd === 'signout') {
-    Drive.signOut();
-    driveConnected.value = false;
-    plan.value     = deepClone(DEFAULT_PLAN);
-    sessions.value = [];
-    bodyWeights.value = [];
-    templates.value   = [];
-    weightGoal.value  = 74;
-    ElMessage.info('Signed out — data cleared from memory');
+    forceSignOut();
   } else if (cmd === 'setup') {
     appState.value = 'setup';
   }
+}
+
+function forceSignOut(expired = false) {
+  Drive.signOut();
+  localStorage.removeItem('wl_signed_in');
+  cacheClear();
+  driveConnected.value = false;
+  // clear in-memory data
+  plan.value        = deepClone(DEFAULT_PLAN);
+  sessions.value    = [];
+  bodyWeights.value = [];
+  templates.value   = [];
+  weightGoal.value  = 74;
+  if (expired) {
+    ElMessage.warning({ message: 'Your session expired. Please sign in again.', duration: 4000 });
+  } else {
+    ElMessage.info('Signed out');
+  }
+  appState.value = 'auth';
 }
 </script>
 
