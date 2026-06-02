@@ -6,13 +6,55 @@
         <div class="page-title">Workout History</div>
         <div class="page-subtitle">{{ sessions.length }} sessions · {{ totalSetsAll }} sets · {{ uniqueDays }} training days</div>
       </div>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
         <el-select v-model="filterDay" placeholder="All days" clearable style="width:180px;">
           <el-option v-for="n in 6" :key="n" :label="`Day ${n} — ${plan[n]?.label}`" :value="n" />
           <el-option label="Custom workouts" value="custom" />
         </el-select>
+        <el-button :icon="Download" style="border-radius:10px; font-weight:700;" @click="exportDialogOpen = true">
+          Export Excel
+        </el-button>
       </div>
     </div>
+
+    <!-- Export dialog -->
+    <el-dialog v-model="exportDialogOpen" title="Export Workout Data" width="440px" destroy-on-close>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <el-alert type="info" :closable="false" show-icon>
+          Downloads an Excel file with 4 sheets: Sessions, Sets, Cardio, Body Weight.
+        </el-alert>
+        <el-form label-position="top">
+          <el-row :gutter="12">
+            <el-col :span="12">
+              <el-form-item label="From date">
+                <el-date-picker v-model="exportFrom" type="date" format="DD MMM YYYY" value-format="YYYY-MM-DD" placeholder="All time" style="width:100%;" clearable />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="To date">
+                <el-date-picker v-model="exportTo" type="date" format="DD MMM YYYY" value-format="YYYY-MM-DD" placeholder="Today" style="width:100%;" clearable />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form>
+        <div style="background:var(--surface); border-radius:var(--radius-md); padding:12px 14px; font-size:13px; color:var(--text-2);">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>Sessions to export</span>
+            <strong>{{ exportCount }}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Total sets</span>
+            <strong>{{ exportSets }}</strong>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="exportDialogOpen = false">Cancel</el-button>
+        <el-button type="primary" :icon="Download" style="font-weight:700;" @click="doExport">
+          Download Excel
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- Summary stats bar -->
     <div class="stats-bar">
@@ -166,10 +208,40 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { Edit, Delete } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { Edit, Delete, Download } from '@element-plus/icons-vue';
+import { exportToExcel } from '../composables/useExport.js';
 
-const props = defineProps({ sessions: Array, plan: Object });
+const props = defineProps({ sessions: Array, plan: Object, bodyWeights: Array });
 const emit  = defineEmits(['edit', 'delete']);
+
+// Export
+const exportDialogOpen = ref(false);
+const exportFrom       = ref('');
+const exportTo         = ref('');
+
+const exportCount = computed(() => props.sessions.filter(s => {
+  if (exportFrom.value && s.date < exportFrom.value) return false;
+  if (exportTo.value   && s.date > exportTo.value)   return false;
+  return true;
+}).length);
+
+const exportSets = computed(() => props.sessions.filter(s => {
+  if (exportFrom.value && s.date < exportFrom.value) return false;
+  if (exportTo.value   && s.date > exportTo.value)   return false;
+  return true;
+}).reduce((a, s) => a + s.exercises.reduce((b, ex) => b + ex.sets.length, 0), 0));
+
+function doExport() {
+  exportToExcel({
+    sessions:     props.sessions,
+    bodyWeights:  props.bodyWeights || [],
+    dateFrom:     exportFrom.value || null,
+    dateTo:       exportTo.value   || null,
+  });
+  exportDialogOpen.value = false;
+  ElMessage.success('Excel file downloaded!');
+}
 
 const filterDay = ref(null);
 const expanded  = ref(new Set());

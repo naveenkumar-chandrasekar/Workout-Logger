@@ -125,9 +125,10 @@
               <div style="font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.3px;">{{ session.dayLabel }}</div>
               <div style="font-size:13px; color:rgba(255,255,255,0.55); margin-top:3px;">{{ formatDate(session.date) }}</div>
             </div>
-            <div style="display:flex; gap:10px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <div class="session-stat-chip">💪 {{ session.exercises.length }} exercises</div>
               <div class="session-stat-chip">📊 {{ totalSetsCompleted }}/{{ totalSets }} sets</div>
+              <button class="save-tpl-btn" @click="saveAsTemplate">📄 Save as Template</button>
             </div>
           </div>
 
@@ -174,7 +175,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(set, si) in ex.sets" :key="set.id" class="set-tr">
+                    <tr v-for="(set, si) in ex.sets" :key="set.id" class="set-tr" :class="{ 'pr-set-row': getPRType(ex.name, set.weight, set.reps) }">
                       <td>
                         <div :class="['set-num', { done: isSetDone(set) }]">{{ si + 1 }}</div>
                       </td>
@@ -184,8 +185,13 @@
                       <td>
                         <el-input v-model="set.weight" placeholder="–" class="set-input" size="small" style="max-width:100px;" />
                       </td>
-                      <td style="text-align:right;">
-                        <span v-if="isSetDone(set)" style="font-size:12px; font-weight:600; color:var(--success);">✓ Done</span>
+                      <td style="text-align:right; white-space:nowrap;">
+                        <span
+                          v-if="getPRType(ex.name, set.weight, set.reps)"
+                          class="pr-live-badge"
+                          :title="PR_LABELS[getPRType(ex.name, set.weight, set.reps)]"
+                        >{{ PR_LABELS[getPRType(ex.name, set.weight, set.reps)] }}</span>
+                        <span v-else-if="isSetDone(set)" style="font-size:12px; font-weight:600; color:var(--success);">✓ Done</span>
                         <span v-else style="font-size:12px; color:var(--text-3);">Pending</span>
                       </td>
                       <td>
@@ -331,9 +337,10 @@ import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft, Delete, Plus, Close, Search, Check } from '@element-plus/icons-vue';
 import { sessionFromPlan, newCustomSession, makeSets, uid, today, deepClone } from '../data/workoutPlan.js';
+import { computePRs, getPRType as _getPRType, PR_LABELS } from '../composables/usePRs.js';
 
-const props = defineProps({ plan: Object, sessions: Array, editSession: Object });
-const emit  = defineEmits(['save', 'cancel']);
+const props = defineProps({ plan: Object, sessions: Array, editSession: Object, preloadedTemplate: Object });
+const emit  = defineEmits(['save', 'cancel', 'template-consumed', 'save-template']);
 
 const selectedDate    = ref(today());
 const selectedDay     = ref(null);
@@ -353,6 +360,16 @@ const cardioItems = [
   { key: 'jogging',   label: 'Jogging',    hint: 'Outdoor or track run',   icon: '🏅', bg: '#e8f5e9' },
   { key: 'cycling',   label: 'Cycling',    hint: '15 min steady state',    icon: '🚴', bg: '#e3f2fd' },
 ];
+
+// PR map — excludes current session so we detect new PRs in real time
+const prMap = computed(() => {
+  const otherSessions = props.sessions.filter(s => s.id !== session.value?.id);
+  return computePRs(otherSessions);
+});
+
+function getPRType(exerciseName, weight, reps) {
+  return _getPRType(exerciseName, weight, reps, prMap.value);
+}
 
 const heroColor = computed(() => {
   if (session.value?.dayNumber) return props.plan[session.value.dayNumber]?.color || '#6c5ce7';
@@ -437,6 +454,18 @@ function addManualExercise() {
   manualEx.value = { name: '', type: 'Isolation', sets: 3, repsTarget: '10', muscle: '', tip: '' };
 }
 
+function saveAsTemplate() {
+  if (!session.value) return;
+  emit('save-template', {
+    name: session.value.dayLabel,
+    exercises: session.value.exercises.map(ex => ({
+      name: ex.name, muscle: ex.muscle || '', type: ex.type || '',
+      sets: ex.sets.length, repsTarget: ex.repsTarget || '10', tip: ex.tip || '',
+    })),
+  });
+  ElMessage.success('Session saved as template!');
+}
+
 async function saveSession() {
   if (!session.value) return;
   saving.value = true;
@@ -452,6 +481,31 @@ async function saveSession() {
 
 watch(() => props.editSession, v => {
   if (v) { session.value = deepClone(v); expandAll(); }
+}, { immediate: true });
+
+// Load from template
+watch(() => props.preloadedTemplate, tpl => {
+  if (!tpl) return;
+  const s = {
+    id: uid(),
+    date: today(),
+    dayNumber: null,
+    dayLabel: tpl.name,
+    isCustom: true,
+    exercises: tpl.exercises.map(ex => ({
+      id: uid(), name: ex.name, type: ex.type || 'Isolation',
+      tip: ex.tip || '', repsTarget: ex.repsTarget || '10',
+      muscle: ex.muscle || '', isCustom: false,
+      sets: makeSets(Number(ex.sets) || 3),
+    })),
+    cardio: { treadmill: { done: false, duration: 15 }, jogging: { done: false, duration: 20 }, cycling: { done: false, duration: 15 } },
+    notes: '',
+  };
+  session.value = s;
+  selectedDay.value = 'custom';
+  customLabel.value = tpl.name;
+  expandAll();
+  emit('template-consumed');
 }, { immediate: true });
 </script>
 
@@ -673,4 +727,32 @@ watch(() => props.editSession, v => {
 /* Clickable table row */
 :deep(.clickable-row) { cursor: pointer; }
 :deep(.clickable-row:hover td) { background: #f0f4ff !important; }
+
+/* PR live badge */
+.pr-set-row td { background: #fffbeb !important; }
+.pr-live-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 700;
+  background: #fef3c7; color: #92400e;
+  border: 1px solid #fbbf24;
+  border-radius: 6px; padding: 2px 8px;
+  white-space: nowrap;
+  animation: pr-pulse 0.6s ease;
+}
+
+.save-tpl-btn {
+  font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; border-radius: 8px;
+  padding: 4px 10px; cursor: pointer;
+  transition: background 0.15s;
+}
+.save-tpl-btn:hover { background: rgba(255,255,255,0.25); }
+
+@keyframes pr-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
 </style>

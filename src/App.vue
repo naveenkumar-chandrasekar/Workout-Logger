@@ -34,7 +34,14 @@
 
       <!-- Nav -->
       <nav class="sidebar-nav">
-        <div class="sidebar-label">Workspace</div>
+        <div class="sidebar-label">Overview</div>
+
+        <button :class="['nav-item', { active: view === 'dashboard' }]" @click="switchView('dashboard')">
+          <span class="nav-icon">🏠</span>
+          <span>Dashboard</span>
+        </button>
+
+        <div class="sidebar-label">Training</div>
 
         <button :class="['nav-item', { active: view === 'plan' }]" @click="switchView('plan')">
           <span class="nav-icon">📋</span>
@@ -51,6 +58,25 @@
           <span class="nav-icon">📅</span>
           <span>History</span>
           <span v-if="sessions.length" class="nav-badge">{{ sessions.length }}</span>
+        </button>
+
+        <div class="sidebar-label">Health</div>
+
+        <button :class="['nav-item', { active: view === 'bodyweight' }]" @click="switchView('bodyweight')">
+          <span class="nav-icon">⚖️</span>
+          <span>Body Weight</span>
+          <span v-if="bodyWeights.length" class="nav-badge">{{ bodyWeights.length }}</span>
+        </button>
+
+        <button :class="['nav-item', { active: view === 'records' }]" @click="switchView('records')">
+          <span class="nav-icon">🏆</span>
+          <span>Personal Records</span>
+        </button>
+
+        <button :class="['nav-item', { active: view === 'templates' }]" @click="switchView('templates')">
+          <span class="nav-icon">📄</span>
+          <span>Templates</span>
+          <span v-if="templates.length" class="nav-badge">{{ templates.length }}</span>
         </button>
       </nav>
 
@@ -77,7 +103,10 @@
               <el-dropdown-item command="signout" :disabled="!driveConnected" divided>
                 <el-icon><SwitchButton /></el-icon> Sign out
               </el-dropdown-item>
-              <el-dropdown-item command="setup" divided>
+              <el-dropdown-item command="export" divided>
+                <el-icon><Download /></el-icon> Export Excel
+              </el-dropdown-item>
+              <el-dropdown-item command="setup">
                 <el-icon><Key /></el-icon> Change Client ID
               </el-dropdown-item>
             </el-dropdown-menu>
@@ -107,8 +136,17 @@
 
       <!-- Page content -->
       <main class="main-content">
+        <Dashboard
+          v-if="view === 'dashboard'"
+          :plan="plan"
+          :sessions="sessions"
+          @go-log="switchView('log')"
+          @go-history="switchView('history')"
+          @edit-session="onEditSession"
+          @start-day="onStartDay"
+        />
         <PlanView
-          v-if="view === 'plan'"
+          v-else-if="view === 'plan'"
           :plan="plan"
           @update-plan="onPlanUpdated"
         />
@@ -117,15 +155,36 @@
           :plan="plan"
           :sessions="sessions"
           :edit-session="editingSession"
+          :preloaded-template="preloadedTemplate"
           @save="onSessionSaved"
-          @cancel="editingSession = null"
+          @cancel="editingSession = null; preloadedTemplate = null"
+          @template-consumed="preloadedTemplate = null"
+          @save-template="onSaveTemplate"
         />
         <WorkoutHistory
           v-else-if="view === 'history'"
           :sessions="sessions"
           :plan="plan"
+          :body-weights="bodyWeights"
           @edit="onEditSession"
           @delete="onDeleteSession"
+        />
+        <BodyWeight
+          v-else-if="view === 'bodyweight'"
+          :model-value="bodyWeights"
+          @update:model-value="onBodyWeightsUpdated"
+        />
+        <PersonalRecords
+          v-else-if="view === 'records'"
+          :sessions="sessions"
+          :plan="plan"
+        />
+        <Templates
+          v-else-if="view === 'templates'"
+          :model-value="templates"
+          :plan="plan"
+          @update:model-value="onTemplatesUpdated"
+          @load-template="onLoadTemplate"
         />
       </main>
     </div>
@@ -135,13 +194,18 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Loading, Refresh, SwitchButton, Key, Plus } from '@element-plus/icons-vue';
+import { Loading, Refresh, SwitchButton, Key, Plus, Download } from '@element-plus/icons-vue';
+import { exportToExcel } from './composables/useExport.js';
 
 import SetupScreen    from './components/SetupScreen.vue';
 import AuthScreen     from './components/AuthScreen.vue';
+import Dashboard      from './components/Dashboard.vue';
 import PlanView       from './components/PlanView.vue';
 import LogWorkout     from './components/LogWorkout.vue';
 import WorkoutHistory from './components/WorkoutHistory.vue';
+import BodyWeight        from './components/BodyWeight.vue';
+import PersonalRecords  from './components/PersonalRecords.vue';
+import Templates        from './components/Templates.vue';
 
 import { DEFAULT_PLAN, deepClone, today } from './data/workoutPlan.js';
 import * as Drive from './services/googleDrive.js';
@@ -154,18 +218,23 @@ const authError   = ref('');
 const loadingMsg  = ref('Connecting…');
 const driveConnected = ref(false);
 
-const plan     = ref(loadLocalPlan());
-const sessions = ref(loadLocalSessions());
-const view     = ref('log');
-const editingSession = ref(null);
+const plan          = ref(loadLocalPlan());
+const sessions      = ref(loadLocalSessions());
+const bodyWeights   = ref(loadLocalWeights());
+const templates     = ref(loadLocalTemplates());
+const view          = ref('dashboard');
+const editingSession      = ref(null);
+const preloadedTemplate   = ref(null);
 
 let logFileId  = null;
 let planFileId = null;
 
 // ── Computed ───────────────────────────────────────────────────────────────
-const pageTitle = computed(() =>
-  ({ plan: 'Weekly Plan', log: 'Log Workout', history: 'History' }[view.value])
-);
+const pageTitle = computed(() => ({
+  dashboard: 'Dashboard', plan: 'Weekly Plan', log: 'Log Workout',
+  history: 'History', bodyweight: 'Body Weight', records: 'Personal Records',
+  templates: 'Templates',
+}[view.value] || 'Dashboard'));
 
 const currentDate = computed(() => {
   const d = new Date();
@@ -282,6 +351,41 @@ function onEditSession(session) {
   view.value = 'log';
 }
 
+function onStartDay(dayNum) {
+  // pre-select that day in log view
+  editingSession.value = null;
+  view.value = 'log';
+}
+
+function onBodyWeightsUpdated(updated) {
+  bodyWeights.value = updated;
+  localStorage.setItem('wl_weights', JSON.stringify(updated));
+}
+
+function onTemplatesUpdated(updated) {
+  templates.value = updated;
+  localStorage.setItem('wl_templates', JSON.stringify(updated));
+}
+
+function onLoadTemplate(tpl) {
+  preloadedTemplate.value = tpl;
+  view.value = 'log';
+}
+
+function onSaveTemplate(tplData) {
+  const newTpl = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2,5),
+    name: tplData.name,
+    exercises: tplData.exercises,
+    muscles: [...new Set(tplData.exercises.map(e => e.muscle).filter(Boolean))],
+    createdAt: new Date().toISOString().slice(0, 10),
+    usedCount: 0,
+  };
+  const updated = [...templates.value, newTpl];
+  templates.value = updated;
+  localStorage.setItem('wl_templates', JSON.stringify(updated));
+}
+
 function onDeleteSession(id) {
   const updated = sessions.value.filter((s) => s.id !== id);
   sessions.value = updated;
@@ -298,6 +402,8 @@ async function handleCmd(cmd) {
   } else if (cmd === 'signout') {
     Drive.signOut(); driveConnected.value = false;
     ElMessage.info('Signed out');
+  } else if (cmd === 'export') {
+    exportToExcel({ sessions: sessions.value, bodyWeights: bodyWeights.value, dateFrom: null, dateTo: null });
   } else if (cmd === 'setup') {
     appState.value = 'setup';
   }
@@ -306,6 +412,8 @@ async function handleCmd(cmd) {
 // ── Local storage ──────────────────────────────────────────────────────────
 function loadLocalPlan()     { try { return JSON.parse(localStorage.getItem('wl_plan'))     || deepClone(DEFAULT_PLAN); } catch { return deepClone(DEFAULT_PLAN); } }
 function loadLocalSessions() { try { return JSON.parse(localStorage.getItem('wl_sessions')) || []; }                    catch { return []; } }
+function loadLocalWeights()   { try { return JSON.parse(localStorage.getItem('wl_weights'))   || []; } catch { return []; } }
+function loadLocalTemplates() { try { return JSON.parse(localStorage.getItem('wl_templates')) || []; } catch { return []; } }
 function saveLocalPlan(p)    { localStorage.setItem('wl_plan',     JSON.stringify(p)); }
 function saveLocalSessions(s){ localStorage.setItem('wl_sessions', JSON.stringify(s)); }
 </script>
