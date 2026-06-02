@@ -1,12 +1,8 @@
 <template>
-  <!-- Setup: enter client ID -->
-  <SetupScreen
-    v-if="appState === 'setup'"
-    @save="onClientIdSaved"
-    @skip="goOffline"
-  />
+  <!-- Setup screen -->
+  <SetupScreen v-if="appState === 'setup'" @save="onClientIdSaved" @skip="goOffline" />
 
-  <!-- Auth: sign in with Google -->
+  <!-- Auth screen -->
   <AuthScreen
     v-else-if="appState === 'auth'"
     :loading="authLoading"
@@ -15,34 +11,64 @@
     @change-setup="appState = 'setup'"
   />
 
-  <!-- Loading Drive files -->
-  <div v-else-if="appState === 'loading'" style="min-height:100dvh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px;">
-    <el-icon style="font-size:40px; color:#6c5ce7; animation: spin 1s linear infinite;"><Loading /></el-icon>
-    <div style="color:#888; font-size:14px;">{{ loadingMsg }}</div>
+  <!-- Loading -->
+  <div v-else-if="appState === 'loading'"
+    style="height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; background:var(--surface);">
+    <el-icon style="font-size:36px; color:var(--primary); animation:spin 1s linear infinite;"><Loading /></el-icon>
+    <div style="font-size:14px; color:var(--text-3);">{{ loadingMsg }}</div>
   </div>
 
   <!-- Main app -->
-  <div v-else-if="appState === 'app'" class="app-shell">
-    <!-- Header -->
-    <div class="app-header">
-      <div class="logo">
-        <span class="logo-emoji">🏋️</span>
+  <div v-else-if="appState === 'app'" class="app-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏋️</span>
         <div class="logo-text">
-          <span class="brand">Workout Logger</span>
-          <span class="tagline">6-day split · 74 kg</span>
+          <div class="brand">Workout Logger</div>
+          <div class="tagline">6-day split · 74 kg</div>
         </div>
       </div>
-      <div style="display:flex; align-items:center; gap:8px;">
-        <div v-if="driveConnected" style="display:flex; align-items:center; gap:4px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); border-radius:20px; padding:4px 10px;">
-          <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block;"></span>
-          <span style="font-size:11px; font-weight:600; color:#10b981;">Drive</span>
+
+      <!-- Nav -->
+      <nav class="sidebar-nav">
+        <div class="sidebar-label">Workspace</div>
+
+        <button :class="['nav-item', { active: view === 'plan' }]" @click="switchView('plan')">
+          <span class="nav-icon">📋</span>
+          <span>Weekly Plan</span>
+        </button>
+
+        <button :class="['nav-item', { active: view === 'log' }]" @click="switchView('log')">
+          <span class="nav-icon">💪</span>
+          <span>Log Workout</span>
+          <span v-if="todaySessions > 0" class="nav-badge">{{ todaySessions }}</span>
+        </button>
+
+        <button :class="['nav-item', { active: view === 'history' }]" @click="switchView('history')">
+          <span class="nav-icon">📅</span>
+          <span>History</span>
+          <span v-if="sessions.length" class="nav-badge">{{ sessions.length }}</span>
+        </button>
+      </nav>
+
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        <div class="drive-status">
+          <div class="drive-dot" :style="{ background: driveConnected ? '#10b981' : '#f59e0b' }" />
+          <div class="drive-info">
+            <div class="drive-label">{{ driveConnected ? 'Google Drive' : 'Offline' }}</div>
+            <div class="drive-sub">{{ driveConnected ? 'Synced' : 'Local storage only' }}</div>
+          </div>
         </div>
-        <div v-else style="display:flex; align-items:center; gap:4px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:20px; padding:4px 10px;">
-          <span style="width:6px; height:6px; border-radius:50%; background:#f59e0b; display:inline-block;"></span>
-          <span style="font-size:11px; font-weight:600; color:#f59e0b;">Offline</span>
-        </div>
-        <el-dropdown @command="handleCmd" trigger="click">
-          <el-button :icon="MoreFilled" circle size="small" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#fff;" />
+
+        <el-dropdown @command="handleCmd" trigger="click" style="width:100%;">
+          <button class="nav-item" style="width:100%;">
+            <span class="nav-icon">⚙️</span>
+            <span>Settings</span>
+          </button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="sync" :disabled="!driveConnected">
@@ -52,100 +78,108 @@
                 <el-icon><SwitchButton /></el-icon> Sign out
               </el-dropdown-item>
               <el-dropdown-item command="setup" divided>
-                <el-icon><Setting /></el-icon> Change Client ID
+                <el-icon><Key /></el-icon> Change Client ID
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
+    </aside>
+
+    <!-- ── Main area ── -->
+    <div class="main-area">
+      <!-- Top header -->
+      <header class="main-header">
+        <div class="page-breadcrumb">
+          <span>Workspace</span>
+          <span style="color:var(--border);">/</span>
+          <span class="crumb-active">{{ pageTitle }}</span>
+        </div>
+        <div class="header-actions">
+          <el-button v-if="view === 'log'" type="primary" :icon="Plus" @click="switchView('log')">
+            New Session
+          </el-button>
+          <div style="font-size:13px; color:var(--text-3);">
+            {{ currentDate }}
+          </div>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="main-content">
+        <PlanView
+          v-if="view === 'plan'"
+          :plan="plan"
+          @update-plan="onPlanUpdated"
+        />
+        <LogWorkout
+          v-else-if="view === 'log'"
+          :plan="plan"
+          :sessions="sessions"
+          :edit-session="editingSession"
+          @save="onSessionSaved"
+          @cancel="editingSession = null"
+        />
+        <WorkoutHistory
+          v-else-if="view === 'history'"
+          :sessions="sessions"
+          :plan="plan"
+          @edit="onEditSession"
+          @delete="onDeleteSession"
+        />
+      </main>
     </div>
-
-    <!-- Page content -->
-    <div class="page-content">
-      <!-- Plan view -->
-      <PlanView
-        v-if="view === 'plan'"
-        :plan="plan"
-        @update-plan="onPlanUpdated"
-      />
-
-      <!-- Log view or Edit session -->
-      <LogWorkout
-        v-else-if="view === 'log'"
-        :plan="plan"
-        :sessions="sessions"
-        :edit-session="editingSession"
-        @save="onSessionSaved"
-        @cancel="editingSession = null"
-      />
-
-      <!-- History -->
-      <WorkoutHistory
-        v-else-if="view === 'history'"
-        :sessions="sessions"
-        :plan="plan"
-        @edit="onEditSession"
-        @delete="onDeleteSession"
-      />
-    </div>
-
-    <!-- Bottom nav -->
-    <nav class="bottom-nav">
-      <button :class="['nav-item', { active: view === 'plan' }]" @click="switchView('plan')">
-        <span class="nav-icon">📋</span>
-        <span>Plan</span>
-      </button>
-      <button :class="['nav-item', { active: view === 'log' }]" @click="switchView('log')">
-        <span class="nav-icon">💪</span>
-        <span>Log</span>
-      </button>
-      <button :class="['nav-item', { active: view === 'history' }]" @click="switchView('history')">
-        <span class="nav-icon">📅</span>
-        <span>History</span>
-      </button>
-    </nav>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
-import { ElMessage, ElNotification } from 'element-plus';
-import { Loading, Connection, MoreFilled, Refresh, SwitchButton, Setting } from '@element-plus/icons-vue';
+import { ref, computed } from 'vue';
+import { ElMessage } from 'element-plus';
+import { Loading, Refresh, SwitchButton, Key, Plus } from '@element-plus/icons-vue';
 
-import SetupScreen from './components/SetupScreen.vue';
-import AuthScreen from './components/AuthScreen.vue';
-import PlanView from './components/PlanView.vue';
-import LogWorkout from './components/LogWorkout.vue';
+import SetupScreen    from './components/SetupScreen.vue';
+import AuthScreen     from './components/AuthScreen.vue';
+import PlanView       from './components/PlanView.vue';
+import LogWorkout     from './components/LogWorkout.vue';
 import WorkoutHistory from './components/WorkoutHistory.vue';
 
-import { DEFAULT_PLAN, deepClone } from './data/workoutPlan.js';
+import { DEFAULT_PLAN, deepClone, today } from './data/workoutPlan.js';
 import * as Drive from './services/googleDrive.js';
 import { parseLogXlsx, buildLogXlsx, parsePlanXlsx, buildPlanXlsx } from './services/workoutData.js';
 
-// ── App state machine ──────────────────────────────────────────────────────
-const appState = ref('setup'); // setup | auth | loading | app
+// ── App state ──────────────────────────────────────────────────────────────
+const appState    = ref('setup');
 const authLoading = ref(false);
-const authError = ref('');
-const loadingMsg = ref('Connecting…');
+const authError   = ref('');
+const loadingMsg  = ref('Connecting…');
 const driveConnected = ref(false);
 
-// ── Data ───────────────────────────────────────────────────────────────────
-const plan = ref(loadLocalPlan());
+const plan     = ref(loadLocalPlan());
 const sessions = ref(loadLocalSessions());
-const view = ref('log');
+const view     = ref('log');
 const editingSession = ref(null);
 
-// File IDs on Drive
-let logFileId = null;
+let logFileId  = null;
 let planFileId = null;
+
+// ── Computed ───────────────────────────────────────────────────────────────
+const pageTitle = computed(() =>
+  ({ plan: 'Weekly Plan', log: 'Log Workout', history: 'History' }[view.value])
+);
+
+const currentDate = computed(() => {
+  const d = new Date();
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+});
+
+const todaySessions = computed(() =>
+  sessions.value.filter((s) => s.date === today()).length
+);
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 const clientId = localStorage.getItem('wl_clientId');
-if (clientId) {
-  boot(clientId);
-} else {
-  appState.value = 'setup';
-}
+if (clientId) boot(clientId);
+else appState.value = 'setup';
 
 async function boot(cid) {
   appState.value = 'loading';
@@ -153,7 +187,6 @@ async function boot(cid) {
   try {
     await Drive.initGapiClient();
     Drive.initGis(cid);
-    // Try silent sign-in (won't show popup)
     appState.value = 'auth';
   } catch (e) {
     console.warn('Drive init failed, going offline:', e.message);
@@ -162,14 +195,8 @@ async function boot(cid) {
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
-function onClientIdSaved(cid) {
-  boot(cid);
-}
-
-async function goOffline() {
-  driveConnected.value = false;
-  appState.value = 'app';
-}
+function onClientIdSaved(cid) { boot(cid); }
+function goOffline() { driveConnected.value = false; appState.value = 'app'; }
 
 async function handleSignIn() {
   authLoading.value = true;
@@ -186,72 +213,50 @@ async function handleSignIn() {
   }
 }
 
-// ── Drive file operations ──────────────────────────────────────────────────
+// ── Drive ──────────────────────────────────────────────────────────────────
 async function loadDriveFiles() {
-  loadingMsg.value = 'Loading your plan from Drive…';
   appState.value = 'loading';
-
+  loadingMsg.value = 'Loading plan from Drive…';
   try {
-    // Plan
     let planFile = await Drive.findFileByName('workout_plan.xlsx');
     if (planFile) {
       planFileId = planFile.id;
-      const buf = await Drive.downloadFile(planFile.id);
-      const parsed = parsePlanXlsx(buf);
-      if (parsed) {
-        plan.value = parsed;
-        saveLocalPlan(parsed);
-      }
+      const parsed = parsePlanXlsx(await Drive.downloadFile(planFile.id));
+      if (parsed) { plan.value = parsed; saveLocalPlan(parsed); }
     } else {
-      // Create it from default plan
-      const data = buildPlanXlsx(plan.value);
-      const created = await Drive.createFile('workout_plan.xlsx', new Uint8Array(data));
+      const created = await Drive.createFile('workout_plan.xlsx', new Uint8Array(buildPlanXlsx(plan.value)));
       planFileId = created.id;
     }
-
-    // Log
     loadingMsg.value = 'Loading workout history…';
     let logFile = await Drive.findFileByName('workout_log.xlsx');
     if (logFile) {
       logFileId = logFile.id;
-      const buf = await Drive.downloadFile(logFile.id);
-      const parsed = parseLogXlsx(buf);
-      sessions.value = parsed;
-      saveLocalSessions(parsed);
+      const parsed = parseLogXlsx(await Drive.downloadFile(logFile.id));
+      sessions.value = parsed; saveLocalSessions(parsed);
     } else {
-      const data = buildLogXlsx([]);
-      const created = await Drive.createFile('workout_log.xlsx', new Uint8Array(data));
+      const created = await Drive.createFile('workout_log.xlsx', new Uint8Array(buildLogXlsx([])));
       logFileId = created.id;
     }
   } catch (e) {
     ElMessage.error('Drive load failed: ' + e.message);
-    console.error(e);
   }
 }
 
-async function persistLog(updatedSessions) {
-  saveLocalSessions(updatedSessions);
+async function persistLog(updated) {
+  saveLocalSessions(updated);
   if (!driveConnected.value || !logFileId) return;
-  try {
-    const data = buildLogXlsx(updatedSessions);
-    await Drive.updateFile(logFileId, new Uint8Array(data));
-  } catch (e) {
-    ElMessage.error('Drive save failed: ' + e.message);
-  }
+  try { await Drive.updateFile(logFileId, new Uint8Array(buildLogXlsx(updated))); }
+  catch (e) { ElMessage.error('Save failed: ' + e.message); }
 }
 
-async function persistPlan(updatedPlan) {
-  saveLocalPlan(updatedPlan);
+async function persistPlan(updated) {
+  saveLocalPlan(updated);
   if (!driveConnected.value || !planFileId) return;
-  try {
-    const data = buildPlanXlsx(updatedPlan);
-    await Drive.updateFile(planFileId, new Uint8Array(data));
-  } catch (e) {
-    ElMessage.error('Drive save failed: ' + e.message);
-  }
+  try { await Drive.updateFile(planFileId, new Uint8Array(buildPlanXlsx(updated))); }
+  catch (e) { ElMessage.error('Save failed: ' + e.message); }
 }
 
-// ── Event handlers ─────────────────────────────────────────────────────────
+// ── Handlers ───────────────────────────────────────────────────────────────
 function switchView(v) {
   if (v !== 'log') editingSession.value = null;
   view.value = v;
@@ -266,8 +271,7 @@ function onPlanUpdated(newPlan) {
 function onSessionSaved(session) {
   const idx = sessions.value.findIndex((s) => s.id === session.id);
   const updated = [...sessions.value];
-  if (idx >= 0) updated[idx] = session;
-  else updated.push(session);
+  if (idx >= 0) updated[idx] = session; else updated.push(session);
   sessions.value = updated;
   editingSession.value = null;
   persistLog(updated);
@@ -292,31 +296,16 @@ async function handleCmd(cmd) {
     appState.value = 'app';
     ElMessage.success('Synced!');
   } else if (cmd === 'signout') {
-    Drive.signOut();
-    driveConnected.value = false;
+    Drive.signOut(); driveConnected.value = false;
     ElMessage.info('Signed out');
   } else if (cmd === 'setup') {
     appState.value = 'setup';
   }
 }
 
-// ── Local storage helpers ──────────────────────────────────────────────────
-function loadLocalPlan() {
-  try { return JSON.parse(localStorage.getItem('wl_plan')) || deepClone(DEFAULT_PLAN); }
-  catch { return deepClone(DEFAULT_PLAN); }
-}
-function saveLocalPlan(p) {
-  localStorage.setItem('wl_plan', JSON.stringify(p));
-}
-function loadLocalSessions() {
-  try { return JSON.parse(localStorage.getItem('wl_sessions')) || []; }
-  catch { return []; }
-}
-function saveLocalSessions(s) {
-  localStorage.setItem('wl_sessions', JSON.stringify(s));
-}
+// ── Local storage ──────────────────────────────────────────────────────────
+function loadLocalPlan()     { try { return JSON.parse(localStorage.getItem('wl_plan'))     || deepClone(DEFAULT_PLAN); } catch { return deepClone(DEFAULT_PLAN); } }
+function loadLocalSessions() { try { return JSON.parse(localStorage.getItem('wl_sessions')) || []; }                    catch { return []; } }
+function saveLocalPlan(p)    { localStorage.setItem('wl_plan',     JSON.stringify(p)); }
+function saveLocalSessions(s){ localStorage.setItem('wl_sessions', JSON.stringify(s)); }
 </script>
-
-<style>
-@keyframes spin { to { transform: rotate(360deg); } }
-</style>
