@@ -24,7 +24,8 @@ export function parseLogXlsx(buffer) {
         notes: s.notes || '',
         cardio: {
           treadmill: { done: s.treadmill === 'Y', duration: Number(s.treadmillMin) || 15 },
-          cycling: { done: s.cycling === 'Y', duration: Number(s.cyclingMin) || 15 },
+          jogging:   { done: s.jogging === 'Y',   duration: Number(s.joggingMin) || 20 },
+          cycling:   { done: s.cycling === 'Y',   duration: Number(s.cyclingMin) || 15 },
         },
         exercises: buildExercises(s.id, sets),
       }));
@@ -70,6 +71,8 @@ export function buildLogXlsx(sessions) {
     notes: s.notes || '',
     treadmill: s.cardio?.treadmill?.done ? 'Y' : 'N',
     treadmillMin: s.cardio?.treadmill?.duration ?? 15,
+    jogging: s.cardio?.jogging?.done ? 'Y' : 'N',
+    joggingMin: s.cardio?.jogging?.duration ?? 20,
     cycling: s.cardio?.cycling?.done ? 'Y' : 'N',
     cyclingMin: s.cardio?.cycling?.duration ?? 15,
   }));
@@ -124,6 +127,7 @@ export function parsePlanXlsx(buffer) {
       if (r.exercise) {
         plan[d].exercises.push({
           name: r.exercise,
+          muscle: r.muscle || '',
           sets: Number(r.sets) || 3,
           repsTarget: String(r.repsTarget || '10'),
           type: r.type || 'Isolation',
@@ -149,6 +153,7 @@ export function buildPlanXlsx(plan) {
         muscles: d.muscles.join(','),
         coachTip: d.coachTip,
         exercise: ex.name,
+        muscle: ex.muscle || '',
         sets: ex.sets,
         repsTarget: ex.repsTarget,
         type: ex.type,

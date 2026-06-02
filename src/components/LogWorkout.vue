@@ -1,16 +1,20 @@
 <template>
-  <div>
-    <!-- If editing existing session, show back + title -->
+  <div class="fade-up">
+
+    <!-- Edit mode back button -->
     <div v-if="editMode" style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
       <el-button :icon="ArrowLeft" circle plain size="small" @click="$emit('cancel')" />
-      <span style="font-size:16px; font-weight:700;">Edit Session</span>
-      <el-tag size="small" type="info">{{ session.date }}</el-tag>
+      <span class="page-title" style="font-size:18px;">Edit Session</span>
     </div>
 
-    <!-- Date + Day selector (only when not editing existing) -->
+    <!-- ── Step 1: Date + Day picker (new session only) ── -->
     <template v-if="!editMode">
-      <el-row :gutter="10" style="margin-bottom:16px;" align="middle">
-        <el-col :span="12">
+      <div class="page-title" style="margin-bottom:4px;">Log Workout</div>
+      <div class="page-subtitle" style="margin-bottom:18px;">Select a date and day to begin</div>
+
+      <!-- Date + Existing sessions row -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;">
+        <div>
           <div class="section-title">Date</div>
           <el-date-picker
             v-model="selectedDate"
@@ -22,36 +26,32 @@
             style="width:100%;"
             @change="onDateChange"
           />
-        </el-col>
-        <el-col :span="12">
-          <div class="section-title">Existing sessions</div>
+        </div>
+        <div>
+          <div class="section-title">Load saved</div>
           <el-select
             v-if="sessionsOnDate.length"
             v-model="loadSessionId"
-            placeholder="Load saved…"
+            placeholder="Pick session…"
             size="large"
             style="width:100%;"
             clearable
             @change="loadSession"
           >
-            <el-option
-              v-for="s in sessionsOnDate"
-              :key="s.id"
-              :label="s.dayLabel"
-              :value="s.id"
-            />
+            <el-option v-for="s in sessionsOnDate" :key="s.id" :label="s.dayLabel" :value="s.id" />
           </el-select>
-          <div v-else style="font-size:13px; color:#aaa; padding-top:8px;">No sessions yet</div>
-        </el-col>
-      </el-row>
+          <div v-else style="height:40px; display:flex; align-items:center; font-size:12px; color:var(--text-3);">
+            No sessions on this date
+          </div>
+        </div>
+      </div>
 
-      <!-- Day selector -->
+      <!-- Day grid -->
       <div class="section-title">Select Day</div>
       <div class="day-grid">
         <div
-          v-for="n in 6"
-          :key="n"
-          :class="['day-btn', `day-${n}`, { active: selectedDay === n }]"
+          v-for="n in 6" :key="n"
+          :class="['day-btn', { active: selectedDay === n }]"
           :style="{ '--day-color': plan[n].color }"
           @click="selectDay(n)"
         >
@@ -60,10 +60,10 @@
         </div>
         <div
           :class="['day-btn', { active: selectedDay === 'custom' }]"
-          style="--day-color:#fd79a8;"
+          style="--day-color: #fd79a8;"
           @click="selectDay('custom')"
         >
-          <div class="day-num" style="color:inherit;">Custom</div>
+          <div class="day-num" style="color:#fd79a8;">Custom</div>
           <div class="day-label">New workout</div>
         </div>
       </div>
@@ -73,188 +73,201 @@
         v-model="customLabel"
         placeholder="Workout name e.g. Full Body"
         size="large"
-        style="margin-bottom:16px;"
+        style="margin-bottom:14px;"
         @keyup.enter="startSession"
       />
 
       <el-button
         type="primary"
         size="large"
-        style="width:100%; margin-bottom:20px;"
         :disabled="!selectedDay"
+        style="width:100%; height:50px; font-size:15px; font-weight:700; border-radius:14px; margin-bottom:20px;"
         @click="startSession"
       >
-        Start Logging
+        Start Logging →
       </el-button>
     </template>
 
-    <!-- Active session -->
+    <!-- ── Active session ── -->
     <template v-if="session">
-      <div v-if="!editMode" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-        <div>
-          <div style="font-size:18px; font-weight:800; color:#1a1a2e;">{{ session.dayLabel }}</div>
-          <div style="font-size:13px; color:#aaa;">{{ session.date }}</div>
+
+      <!-- Session hero card -->
+      <div
+        class="session-hero"
+        :style="{ background: `linear-gradient(135deg, ${heroColor}, ${darken(heroColor)})` }"
+      >
+        <div class="day-tag">{{ session.dayNumber ? `Day ${session.dayNumber}` : 'Custom' }}</div>
+        <div class="session-title">{{ session.dayLabel }}</div>
+        <div class="session-date">{{ formatDate(session.date) }}</div>
+        <div class="session-stats">
+          <div class="session-stat">💪 {{ session.exercises.length }} exercises</div>
+          <div class="session-stat">📊 {{ totalSetsCompleted }}/{{ totalSets }} sets done</div>
+          <div class="session-stat" v-if="anyCardio">🏃 Cardio ✓</div>
         </div>
-        <el-tag :style="{ background: dayColor, borderColor: dayColor, color: '#fff' }" v-if="session.dayNumber">
-          Day {{ session.dayNumber }}
-        </el-tag>
-        <el-tag type="info" v-else>Custom</el-tag>
       </div>
 
       <!-- Exercises -->
       <div class="section-title">Exercises</div>
 
       <div v-for="(ex, exIdx) in session.exercises" :key="ex.id" class="exercise-card">
-        <!-- Header -->
+        <!-- Card header -->
         <div class="exercise-card-header" @click="toggleExpand(ex.id)">
           <div class="exercise-name-row">
-            <el-icon
-              style="color:#aaa; transition:transform 0.2s;"
-              :style="{ transform: expanded.has(ex.id) ? 'rotate(90deg)' : '' }"
-            ><ArrowRight /></el-icon>
+            <span :class="['chevron', { open: expanded.has(ex.id) }]">▶</span>
             <span class="exercise-name">{{ ex.name }}</span>
-            <el-tag :type="ex.type === 'Compound' ? 'warning' : 'info'" size="small" effect="plain">
-              {{ ex.type || 'Custom' }}
-            </el-tag>
+            <el-tag
+              :type="ex.type === 'Compound' ? 'warning' : 'info'"
+              size="small"
+              effect="plain"
+              style="flex-shrink:0;"
+            >{{ ex.type || 'Custom' }}</el-tag>
           </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-size:12px; color:#aaa;">{{ completedSets(ex) }}/{{ ex.sets.length }}</span>
-            <el-button
-              type="danger" :icon="Delete" circle plain size="small"
-              @click.stop="removeExercise(exIdx)"
-            />
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span :class="['progress-badge', { 'all-done': completedSets(ex) === ex.sets.length && ex.sets.length > 0 }]">
+              {{ completedSets(ex) }}/{{ ex.sets.length }}
+            </span>
+            <el-button type="danger" :icon="Delete" circle plain size="small" @click.stop="removeExercise(exIdx)" />
           </div>
         </div>
 
-        <!-- Body -->
+        <!-- Card body -->
         <div v-show="expanded.has(ex.id)" class="exercise-body">
-          <div v-if="ex.tip" class="exercise-tip">💡 {{ ex.tip }}</div>
-          <div v-if="ex.repsTarget" style="font-size:12px; color:#aaa; padding-bottom:6px;">
-            Target: {{ ex.sets.length }} sets × {{ ex.repsTarget }} reps
+          <div v-if="ex.tip" class="exercise-tip">
+            <span>💡</span><span>{{ ex.tip }}</span>
+          </div>
+          <div v-if="ex.repsTarget" class="target-label">
+            🎯 Target: {{ ex.sets.length }} × {{ ex.repsTarget }} reps
           </div>
 
-          <!-- Set header -->
-          <div class="set-header">
-            <div>#</div>
-            <div>Reps</div>
-            <div>Weight (kg)</div>
-            <div></div>
-          </div>
+          <!-- Set table -->
+          <table class="set-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Reps</th>
+                <th>Weight (kg)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(set, si) in ex.sets" :key="set.id" class="set-row-tr">
+                <td>
+                  <div :class="['set-num', { done: isSetDone(set) }]">{{ si + 1 }}</div>
+                </td>
+                <td>
+                  <el-input
+                    v-model="set.reps"
+                    placeholder="–"
+                    class="set-input"
+                    size="small"
+                  />
+                </td>
+                <td>
+                  <el-input
+                    v-model="set.weight"
+                    placeholder="–"
+                    class="set-input"
+                    size="small"
+                  />
+                </td>
+                <td>
+                  <el-button :icon="Close" circle plain size="small" type="info" @click="removeSet(ex, si)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-          <!-- Set rows -->
-          <div v-for="(set, setIdx) in ex.sets" :key="set.id" class="set-row">
-            <div :class="['set-num', { completed: isSetDone(set) }]">{{ setIdx + 1 }}</div>
-            <el-input
-              v-model="set.reps"
-              placeholder="–"
-              class="set-input"
-              size="small"
-              @input="(v) => onRepsInput(set, v)"
-            />
-            <el-input
-              v-model="set.weight"
-              placeholder="–"
-              class="set-input"
-              size="small"
-            />
-            <el-button
-              :icon="Close" circle plain size="small" type="info"
-              @click="removeSet(ex, setIdx)"
-            />
-          </div>
-
-          <!-- Set actions -->
           <div class="set-actions">
-            <el-button size="small" :icon="Plus" plain @click="addSet(ex)">Add Set</el-button>
-            <span style="font-size:12px; color:#aaa;">
-              {{ completedSets(ex) }} completed
+            <el-button size="small" :icon="Plus" plain @click="addSet(ex)" style="border-radius:8px;">
+              Add Set
+            </el-button>
+            <span style="font-size:11px; font-weight:600; color:var(--success);" v-if="completedSets(ex) === ex.sets.length && ex.sets.length > 0">
+              ✓ All sets done
+            </span>
+            <span style="font-size:11px; color:var(--text-3);" v-else>
+              {{ completedSets(ex) }} of {{ ex.sets.length }} done
             </span>
           </div>
         </div>
       </div>
 
-      <!-- Add exercise -->
-      <el-button
-        style="width:100%; margin-bottom:16px; border-style:dashed;"
-        size="large"
-        :icon="Plus"
-        @click="showAddExDialog = true"
-      >
+      <!-- Add exercise button -->
+      <button class="add-ex-btn" @click="showAddExDialog = true">
+        <el-icon><Plus /></el-icon>
         Add Exercise
-      </el-button>
+      </button>
 
-      <!-- Cardio section -->
-      <div class="section-title">Cardio (optional)</div>
+      <!-- ── Cardio ── -->
+      <div class="section-title">Cardio</div>
       <div class="cardio-card">
-        <div class="cardio-row">
-          <div class="cardio-label">
-            <span style="font-size:20px;">🏃</span>
-            <span>Treadmill</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <el-input-number
-              v-if="session.cardio.treadmill.done"
-              v-model="session.cardio.treadmill.duration"
-              :min="1" :max="120" :step="5"
-              controls-position="right"
-              size="small"
-              style="width:90px;"
-            />
-            <span v-if="session.cardio.treadmill.done" style="font-size:12px; color:#aaa;">min</span>
-            <el-switch v-model="session.cardio.treadmill.done" />
-          </div>
+        <div class="cardio-card-header">
+          <span style="font-size:16px;">🏃</span>
+          <span>Cardio Warmup</span>
+          <span style="font-size:11px; color:rgba(255,255,255,0.4); margin-left:auto;">toggle to log</span>
         </div>
-        <el-divider style="margin:6px 0;" />
-        <div class="cardio-row">
+        <div v-for="item in cardioItems" :key="item.key" class="cardio-row">
           <div class="cardio-label">
-            <span style="font-size:20px;">🚴</span>
-            <span>Cycling</span>
+            <div class="cardio-icon" :style="{ background: item.bg }">{{ item.icon }}</div>
+            <div>
+              <div class="cardio-name">{{ item.label }}</div>
+              <div class="cardio-hint">{{ item.hint }}</div>
+            </div>
           </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <el-input-number
-              v-if="session.cardio.cycling.done"
-              v-model="session.cardio.cycling.duration"
-              :min="1" :max="120" :step="5"
-              controls-position="right"
-              size="small"
-              style="width:90px;"
-            />
-            <span v-if="session.cardio.cycling.done" style="font-size:12px; color:#aaa;">min</span>
-            <el-switch v-model="session.cardio.cycling.done" />
+          <div class="cardio-controls">
+            <div v-if="session.cardio[item.key].done" class="duration-badge">
+              <el-input-number
+                v-model="session.cardio[item.key].duration"
+                :min="1" :max="120" :step="5"
+                controls-position="right"
+                size="small"
+                style="width:80px;"
+              />
+              <span style="font-size:11px; color:var(--text-3);">min</span>
+            </div>
+            <el-switch v-model="session.cardio[item.key].done" />
           </div>
         </div>
       </div>
 
-      <!-- Notes -->
-      <div class="section-title">Notes</div>
-      <el-input
-        v-model="session.notes"
-        type="textarea"
-        :rows="3"
-        placeholder="How did it feel? Any PRs?"
-        style="margin-bottom:20px;"
-      />
+      <!-- ── Notes ── -->
+      <div class="notes-card">
+        <div class="notes-card-header">📝 Session Notes</div>
+        <el-input
+          v-model="session.notes"
+          type="textarea"
+          :rows="3"
+          placeholder="How did it feel? Any PRs? Pain points?"
+          :border="false"
+          style="border-radius:0 0 var(--radius-lg) var(--radius-lg);"
+        />
+      </div>
 
       <!-- Save / Cancel -->
-      <div style="display:flex; gap:10px; margin-bottom:8px;">
-        <el-button v-if="editMode" @click="$emit('cancel')" style="flex:1;">Cancel</el-button>
-        <el-button type="primary" size="large" :loading="saving" @click="saveSession" style="flex:2;">
-          <template #icon><el-icon><Check /></el-icon></template>
-          {{ editMode ? 'Update Session' : 'Save Workout' }}
+      <div style="display:flex; gap:10px;">
+        <el-button v-if="editMode" @click="$emit('cancel')" style="flex:1; height:50px; border-radius:14px;">
+          Cancel
+        </el-button>
+        <el-button
+          type="primary"
+          size="large"
+          :loading="saving"
+          @click="saveSession"
+          style="flex:2; height:50px; font-size:15px; font-weight:700; border-radius:14px;"
+        >
+          {{ editMode ? '✓ Update Session' : '✓ Save Workout' }}
         </el-button>
       </div>
     </template>
 
-    <!-- Add Exercise Dialog -->
+    <!-- ── Add Exercise Dialog ── -->
     <el-dialog
       v-model="showAddExDialog"
       title="Add Exercise"
-      width="92%"
+      width="94%"
       :close-on-click-modal="true"
       destroy-on-close
     >
       <el-tabs v-model="addExTab">
-        <!-- From Plan -->
         <el-tab-pane label="From Plan" name="plan">
           <el-input
             v-model="exSearch"
@@ -263,28 +276,31 @@
             clearable
             style="margin-bottom:12px;"
           />
-          <div style="max-height:320px; overflow-y:auto;">
+          <div style="max-height:300px; overflow-y:auto;">
             <div
               v-for="ex in filteredPlanExercises"
               :key="ex.name"
-              style="display:flex; align-items:center; justify-content:space-between; padding:10px 4px; border-bottom:1px solid #f5f5f5; cursor:pointer;"
+              style="display:flex; align-items:center; justify-content:space-between; padding:10px 6px; border-bottom:1px solid var(--border); cursor:pointer; border-radius:8px; transition:background 0.12s;"
               @click="addFromPlan(ex)"
+              @mouseenter="$event.currentTarget.style.background='var(--surface)'"
+              @mouseleave="$event.currentTarget.style.background=''"
             >
               <div>
-                <div style="font-size:14px; font-weight:600;">{{ ex.name }}</div>
-                <div style="font-size:12px; color:#aaa;">{{ ex.dayLabel }} · {{ ex.sets }} × {{ ex.repsTarget }}</div>
+                <div style="font-size:14px; font-weight:600; color:var(--text-1);">{{ ex.name }}</div>
+                <div style="font-size:12px; color:var(--text-3); margin-top:2px;">{{ ex.dayLabel }} · {{ ex.sets }} × {{ ex.repsTarget }}</div>
               </div>
               <el-tag :type="ex.type === 'Compound' ? 'warning' : 'info'" size="small" effect="plain">{{ ex.type }}</el-tag>
             </div>
-            <el-empty v-if="!filteredPlanExercises.length" description="No matches" :image-size="60" />
+            <div v-if="!filteredPlanExercises.length" style="padding:32px; text-align:center; color:var(--text-3); font-size:14px;">
+              No matches found
+            </div>
           </div>
         </el-tab-pane>
 
-        <!-- Manual -->
-        <el-tab-pane label="Manual" name="manual">
+        <el-tab-pane label="Custom" name="manual">
           <el-form label-position="top">
-            <el-form-item label="Name" required>
-              <el-input v-model="manualEx.name" placeholder="Exercise name" />
+            <el-form-item label="Exercise name" required>
+              <el-input v-model="manualEx.name" placeholder="e.g. Incline Dumbbell Curl" />
             </el-form-item>
             <el-row :gutter="10">
               <el-col :span="12">
@@ -312,7 +328,7 @@
           </el-form>
           <el-button
             type="primary"
-            style="width:100%;"
+            style="width:100%; height:44px; border-radius:12px; font-weight:700;"
             :disabled="!manualEx.name.trim()"
             @click="addManualExercise"
           >
@@ -327,34 +343,36 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
-import { ArrowLeft, ArrowRight, Delete, Plus, Close, Check, Search } from '@element-plus/icons-vue';
+import { ArrowLeft, Delete, Plus, Close, Search } from '@element-plus/icons-vue';
 import {
   sessionFromPlan, newCustomSession, makeSets, uid, today, deepClone,
 } from '../data/workoutPlan.js';
 
-const props = defineProps({
-  plan: Object,
-  sessions: Array,
-  editSession: Object,   // pre-loaded session to edit
-});
+const props = defineProps({ plan: Object, sessions: Array, editSession: Object });
 const emit = defineEmits(['save', 'cancel']);
 
 // ── State ──────────────────────────────────────────────────────────────────
-const selectedDate = ref(today());
-const selectedDay = ref(null);
-const customLabel = ref('');
+const selectedDate  = ref(today());
+const selectedDay   = ref(null);
+const customLabel   = ref('');
 const loadSessionId = ref(null);
-const session = ref(props.editSession ? deepClone(props.editSession) : null);
-const editMode = computed(() => !!props.editSession);
-const saving = ref(false);
-const expanded = ref(new Set());
+const session       = ref(props.editSession ? deepClone(props.editSession) : null);
+const editMode      = computed(() => !!props.editSession);
+const saving        = ref(false);
+const expanded      = ref(new Set());
 const showAddExDialog = ref(false);
-const addExTab = ref('plan');
-const exSearch = ref('');
-const manualEx = ref({ name: '', type: 'Isolation', sets: 3, repsTarget: '10', tip: '' });
+const addExTab      = ref('plan');
+const exSearch      = ref('');
+const manualEx      = ref({ name: '', type: 'Isolation', sets: 3, repsTarget: '10', tip: '' });
+
+const cardioItems = [
+  { key: 'treadmill', label: 'Treadmill',  hint: '15 min moderate pace',  icon: '🏃', bg: '#fff3e0' },
+  { key: 'jogging',   label: 'Jogging',    hint: 'Outdoor or track',       icon: '🏅', bg: '#e8f5e9' },
+  { key: 'cycling',   label: 'Cycling',    hint: '15 min steady state',    icon: '🚴', bg: '#e3f2fd' },
+];
 
 // ── Computed ───────────────────────────────────────────────────────────────
-const dayColor = computed(() => {
+const heroColor = computed(() => {
   if (session.value?.dayNumber) return props.plan[session.value.dayNumber]?.color || '#6c5ce7';
   return '#fd79a8';
 });
@@ -366,9 +384,7 @@ const sessionsOnDate = computed(() =>
 const allPlanExercises = computed(() => {
   const list = [];
   Object.entries(props.plan).forEach(([dayNum, day]) => {
-    day.exercises.forEach((ex) => {
-      list.push({ ...ex, dayLabel: `Day ${dayNum}` });
-    });
+    day.exercises.forEach((ex) => list.push({ ...ex, dayLabel: `Day ${dayNum}` }));
   });
   return list;
 });
@@ -378,37 +394,26 @@ const filteredPlanExercises = computed(() => {
   return q ? allPlanExercises.value.filter((e) => e.name.toLowerCase().includes(q)) : allPlanExercises.value;
 });
 
-// ── Methods ────────────────────────────────────────────────────────────────
-function onDateChange() {
-  loadSessionId.value = null;
+const totalSets = computed(() => session.value?.exercises.reduce((a, ex) => a + ex.sets.length, 0) ?? 0);
+const totalSetsCompleted = computed(() => session.value?.exercises.reduce((a, ex) => a + completedSets(ex), 0) ?? 0);
+const anyCardio = computed(() => Object.values(session.value?.cardio ?? {}).some((c) => c.done));
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function darken(hex) {
+  try {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, (n >> 16) - 50);
+    const g = Math.max(0, ((n >> 8) & 0xff) - 50);
+    const b = Math.max(0, (n & 0xff) - 50);
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  } catch { return hex; }
 }
 
-function loadSession(id) {
-  if (!id) return;
-  const found = props.sessions.find((s) => s.id === id);
-  if (found) session.value = deepClone(found);
-}
-
-function selectDay(n) {
-  selectedDay.value = n;
-  session.value = null; // reset until user clicks Start
-}
-
-function startSession() {
-  if (!selectedDay.value) return;
-  if (selectedDay.value === 'custom') {
-    session.value = newCustomSession(selectedDate.value, customLabel.value);
-  } else {
-    session.value = sessionFromPlan(selectedDay.value, props.plan, selectedDate.value);
-  }
-  // auto-expand all exercises
-  expanded.value = new Set(session.value.exercises.map((e) => e.id));
-}
-
-function toggleExpand(id) {
-  const s = new Set(expanded.value);
-  s.has(id) ? s.delete(id) : s.add(id);
-  expanded.value = s;
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${Number(day)} ${MONTHS[Number(m) - 1]} ${y}`;
 }
 
 function completedSets(ex) {
@@ -419,33 +424,42 @@ function isSetDone(set) {
   return String(set.reps).trim() !== '' && String(set.reps).trim() !== '0';
 }
 
-function onRepsInput(set, v) {
-  set.reps = v;
+// ── Methods ────────────────────────────────────────────────────────────────
+function onDateChange() { loadSessionId.value = null; }
+
+function loadSession(id) {
+  const found = props.sessions.find((s) => s.id === id);
+  if (found) {
+    session.value = deepClone(found);
+    expanded.value = new Set(session.value.exercises.map((e) => e.id));
+  }
 }
 
-function addSet(ex) {
-  ex.sets.push({ id: uid(), reps: '', weight: '' });
+function selectDay(n) {
+  selectedDay.value = n;
+  session.value = null;
 }
 
-function removeSet(ex, idx) {
-  if (ex.sets.length <= 1) return;
-  ex.sets.splice(idx, 1);
+function startSession() {
+  if (!selectedDay.value) return;
+  session.value = selectedDay.value === 'custom'
+    ? newCustomSession(selectedDate.value, customLabel.value)
+    : sessionFromPlan(selectedDay.value, props.plan, selectedDate.value);
+  expanded.value = new Set(session.value.exercises.map((e) => e.id));
 }
 
-function removeExercise(idx) {
-  session.value.exercises.splice(idx, 1);
+function toggleExpand(id) {
+  const s = new Set(expanded.value);
+  s.has(id) ? s.delete(id) : s.add(id);
+  expanded.value = s;
 }
+
+function addSet(ex)            { ex.sets.push({ id: uid(), reps: '', weight: '' }); }
+function removeSet(ex, idx)    { if (ex.sets.length > 1) ex.sets.splice(idx, 1); }
+function removeExercise(idx)   { session.value.exercises.splice(idx, 1); }
 
 function addFromPlan(planEx) {
-  const ex = {
-    id: uid(),
-    name: planEx.name,
-    type: planEx.type,
-    tip: planEx.tip,
-    repsTarget: planEx.repsTarget,
-    isCustom: false,
-    sets: makeSets(planEx.sets),
-  };
+  const ex = { id: uid(), name: planEx.name, type: planEx.type, tip: planEx.tip, repsTarget: planEx.repsTarget, isCustom: false, sets: makeSets(planEx.sets) };
   session.value.exercises.push(ex);
   expanded.value = new Set([...expanded.value, ex.id]);
   showAddExDialog.value = false;
@@ -454,15 +468,7 @@ function addFromPlan(planEx) {
 
 function addManualExercise() {
   if (!manualEx.value.name.trim()) return;
-  const ex = {
-    id: uid(),
-    name: manualEx.value.name.trim(),
-    type: manualEx.value.type,
-    tip: manualEx.value.tip,
-    repsTarget: manualEx.value.repsTarget,
-    isCustom: true,
-    sets: makeSets(manualEx.value.sets),
-  };
+  const ex = { id: uid(), name: manualEx.value.name.trim(), type: manualEx.value.type, tip: manualEx.value.tip, repsTarget: manualEx.value.repsTarget, isCustom: true, sets: makeSets(manualEx.value.sets) };
   session.value.exercises.push(ex);
   expanded.value = new Set([...expanded.value, ex.id]);
   showAddExDialog.value = false;
@@ -474,9 +480,8 @@ async function saveSession() {
   saving.value = true;
   try {
     emit('save', deepClone(session.value));
-    ElMessage.success('Workout saved!');
+    ElMessage({ message: 'Workout saved!', type: 'success', duration: 2000 });
     if (!editMode.value) {
-      // Reset for next log
       session.value = null;
       selectedDay.value = null;
       customLabel.value = '';
@@ -487,7 +492,6 @@ async function saveSession() {
   }
 }
 
-// If editSession prop changes, load it
 watch(() => props.editSession, (v) => {
   if (v) {
     session.value = deepClone(v);

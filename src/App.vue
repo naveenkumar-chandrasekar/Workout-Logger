@@ -25,14 +25,24 @@
   <div v-else-if="appState === 'app'" class="app-shell">
     <!-- Header -->
     <div class="app-header">
-      <div class="logo">🏋️ Workout Logger</div>
+      <div class="logo">
+        <span class="logo-emoji">🏋️</span>
+        <div class="logo-text">
+          <span class="brand">Workout Logger</span>
+          <span class="tagline">6-day split · 74 kg</span>
+        </div>
+      </div>
       <div style="display:flex; align-items:center; gap:8px;">
-        <el-tag v-if="driveConnected" type="success" size="small" effect="plain">
-          <el-icon><Connection /></el-icon> Drive
-        </el-tag>
-        <el-tag v-else type="warning" size="small" effect="plain">Offline</el-tag>
+        <div v-if="driveConnected" style="display:flex; align-items:center; gap:4px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); border-radius:20px; padding:4px 10px;">
+          <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+          <span style="font-size:11px; font-weight:600; color:#10b981;">Drive</span>
+        </div>
+        <div v-else style="display:flex; align-items:center; gap:4px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:20px; padding:4px 10px;">
+          <span style="width:6px; height:6px; border-radius:50%; background:#f59e0b; display:inline-block;"></span>
+          <span style="font-size:11px; font-weight:600; color:#f59e0b;">Offline</span>
+        </div>
         <el-dropdown @command="handleCmd" trigger="click">
-          <el-button :icon="MoreFilled" circle plain size="small" />
+          <el-button :icon="MoreFilled" circle size="small" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#fff;" />
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="sync" :disabled="!driveConnected">

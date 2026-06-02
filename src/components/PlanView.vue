@@ -1,123 +1,145 @@
 <template>
-  <div>
-    <!-- Header row -->
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+  <div class="fade-up">
+    <!-- Page header -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
       <div>
-        <div style="font-size:20px; font-weight:800; color:#1a1a2e;">Your Plan</div>
-        <div style="font-size:13px; color:#aaa; margin-top:2px;">6-day split · tap a day to edit</div>
+        <div class="page-title">Weekly Plan</div>
+        <div class="page-subtitle">6-day split · tap Edit to customise any day</div>
       </div>
     </div>
 
-    <!-- Day cards -->
-    <div v-for="(day, dayNum) in plan" :key="dayNum" class="plan-day-card">
-      <!-- Coloured header -->
-      <div class="plan-day-header" :style="{ background: day.color }">
-        <div>
-          <div class="day-title">Day {{ dayNum }} — {{ day.label }}</div>
-          <div class="day-subtitle">{{ day.muscles.join(' · ') }}</div>
+    <!-- Day blocks -->
+    <div v-for="(day, dayNum) in plan" :key="dayNum" class="plan-block">
+
+      <!-- Day label row -->
+      <div class="plan-day-row" :style="{ borderLeftColor: day.color }">
+        <div class="plan-day-info">
+          <span class="plan-day-pill" :style="{ background: day.color }">Day {{ dayNum }}</span>
+          <span class="plan-day-name">{{ day.label }}</span>
         </div>
-        <el-button size="small" plain @click="openEdit(dayNum)"
-          style="border-color:rgba(255,255,255,0.5); color:#fff; background:rgba(255,255,255,0.15);">
-          <el-icon><Edit /></el-icon> Edit
+        <el-button size="small" plain @click="openEdit(dayNum)" style="border-radius:8px; font-weight:600;">
+          <el-icon style="margin-right:3px;"><Edit /></el-icon>Edit
         </el-button>
       </div>
 
       <!-- Exercise list -->
-      <div style="background:#fff;">
-        <div v-for="ex in day.exercises" :key="ex.name" class="plan-exercise-row">
-          <div>
-            <div class="plan-ex-name">{{ ex.name }}</div>
-            <div class="plan-ex-meta">{{ ex.sets }} sets × {{ ex.repsTarget }} reps</div>
+      <div class="plan-ex-list">
+        <div
+          v-for="ex in day.exercises"
+          :key="ex.name"
+          class="plan-ex-item"
+        >
+          <div class="plan-ex-name">{{ ex.name }}</div>
+          <div class="plan-ex-right">
+            <span class="plan-ex-sets">{{ ex.sets }}×{{ ex.repsTarget }}</span>
+            <span
+              class="muscle-tag"
+              :style="{ background: muscleStyle(ex.muscle).bg, color: muscleStyle(ex.muscle).color, borderColor: muscleStyle(ex.muscle).border }"
+            >{{ ex.muscle || '—' }}</span>
           </div>
-          <el-tag :type="ex.type === 'Compound' ? 'warning' : 'info'" size="small" effect="plain">
-            {{ ex.type }}
-          </el-tag>
         </div>
 
         <!-- Coach tip -->
-        <div v-if="day.coachTip" style="padding:10px 16px; background:#fafbff; border-top:1px solid #f0f2f8;">
-          <span style="font-size:12px; color:#888;">💡 {{ day.coachTip }}</span>
+        <div v-if="day.coachTip" class="plan-coach-tip">
+          <span>💡</span><span>{{ day.coachTip }}</span>
         </div>
       </div>
     </div>
 
-    <!-- Edit Day Drawer -->
+    <!-- Edit Drawer -->
     <el-drawer
       v-model="drawerOpen"
-      :title="`Edit Day ${editingDayNum}`"
       direction="btt"
-      size="90%"
+      size="92%"
       :destroy-on-close="false"
     >
       <template #header>
         <div style="display:flex; align-items:center; gap:10px;">
-          <div :style="{ width:'10px', height:'10px', borderRadius:'50%', background: editDayData?.color }" />
-          <span style="font-weight:700; font-size:16px;">Day {{ editingDayNum }} — {{ editDayData?.label }}</span>
+          <div style="width:12px; height:12px; border-radius:50%;" :style="{ background: editDayData?.color }" />
+          <span>Day {{ editingDayNum }} — {{ editDayData?.label }}</span>
         </div>
       </template>
 
-      <div v-if="editDayData" style="padding:16px; overflow-y:auto; height:calc(100% - 60px);">
-        <!-- Day label & color -->
-        <el-form label-position="top" size="default">
-          <el-row :gutter="12">
-            <el-col :span="18">
-              <el-form-item label="Day label">
-                <el-input v-model="editDayData.label" placeholder="e.g. Chest · Shoulder · Triceps" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="6">
-              <el-form-item label="Color">
-                <el-color-picker v-model="editDayData.color" size="default" style="width:100%;" />
-              </el-form-item>
-            </el-col>
-          </el-row>
+      <div v-if="editDayData" style="padding:16px; overflow-y:auto; height:calc(100% - 56px); padding-bottom:84px;">
 
-          <el-form-item label="Coach tip">
-            <el-input v-model="editDayData.coachTip" type="textarea" :rows="2" placeholder="Optional coaching note…" />
-          </el-form-item>
-        </el-form>
+        <!-- Day meta -->
+        <div style="background:var(--surface); border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
+          <el-form label-position="top" size="default">
+            <el-row :gutter="10">
+              <el-col :span="18">
+                <el-form-item label="Day label" style="margin-bottom:10px;">
+                  <el-input v-model="editDayData.label" placeholder="e.g. Chest · Shoulder" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="6">
+                <el-form-item label="Colour" style="margin-bottom:10px;">
+                  <el-color-picker v-model="editDayData.color" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="Coach tip" style="margin-bottom:0;">
+              <el-input v-model="editDayData.coachTip" type="textarea" :rows="2" placeholder="Optional coaching note…" />
+            </el-form-item>
+          </el-form>
+        </div>
 
-        <div class="section-title" style="margin-top:8px;">Exercises</div>
+        <!-- Exercises -->
+        <div class="section-title">Exercises ({{ editDayData.exercises.length }})</div>
 
-        <!-- Exercise rows -->
-        <div v-for="(ex, idx) in editDayData.exercises" :key="idx"
-          style="border:1px solid #eef0f5; border-radius:10px; padding:12px; margin-bottom:10px; background:#fff;">
-          <div style="display:flex; gap:8px; align-items:flex-start;">
-            <el-input v-model="ex.name" placeholder="Exercise name" style="flex:1;" />
+        <div
+          v-for="(ex, idx) in editDayData.exercises"
+          :key="idx"
+          style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow-sm);"
+        >
+          <!-- Row 1: number + name + delete -->
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <div style="width:22px; height:22px; border-radius:6px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--primary); flex-shrink:0;">
+              {{ idx + 1 }}
+            </div>
+            <el-input v-model="ex.name" placeholder="Exercise name" style="flex:1;" size="small" />
             <el-button type="danger" :icon="Delete" circle plain size="small" @click="removeExercise(idx)" />
           </div>
-          <el-row :gutter="8" style="margin-top:8px;">
-            <el-col :span="6">
-              <div style="font-size:11px; color:#aaa; margin-bottom:3px;">Sets</div>
-              <el-input-number v-model="ex.sets" :min="1" :max="10" controls-position="right" style="width:100%;" size="small" />
-            </el-col>
+
+          <!-- Row 2: muscle, sets, reps, type -->
+          <el-row :gutter="8">
             <el-col :span="8">
-              <div style="font-size:11px; color:#aaa; margin-bottom:3px;">Reps target</div>
+              <div class="edit-label">Muscle</div>
+              <el-select v-model="ex.muscle" size="small" style="width:100%;" placeholder="Muscle">
+                <el-option v-for="m in muscleOptions" :key="m" :label="m" :value="m" />
+              </el-select>
+            </el-col>
+            <el-col :span="5">
+              <div class="edit-label">Sets</div>
+              <el-input-number v-model="ex.sets" :min="1" :max="10" controls-position="right" size="small" style="width:100%;" />
+            </el-col>
+            <el-col :span="5">
+              <div class="edit-label">Reps</div>
               <el-input v-model="ex.repsTarget" placeholder="10" size="small" />
             </el-col>
-            <el-col :span="10">
-              <div style="font-size:11px; color:#aaa; margin-bottom:3px;">Type</div>
+            <el-col :span="6">
+              <div class="edit-label">Type</div>
               <el-select v-model="ex.type" size="small" style="width:100%;">
                 <el-option label="Compound" value="Compound" />
                 <el-option label="Isolation" value="Isolation" />
               </el-select>
             </el-col>
           </el-row>
-          <el-input v-model="ex.tip" placeholder="Coaching tip (optional)" size="small" style="margin-top:8px;"
-            :prefix-icon="InfoFilled" />
+
+          <!-- Tip -->
+          <el-input v-model="ex.tip" placeholder="💡 Coaching tip (optional)" size="small" style="margin-top:8px;" />
         </div>
 
-        <!-- Add exercise -->
-        <div style="display:flex; gap:8px; margin-top:4px; margin-bottom:80px;">
-          <el-input v-model="newExName" placeholder="New exercise name…" @keyup.enter="addExercise" />
+        <!-- Add new -->
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <el-input v-model="newExName" placeholder="New exercise name…" size="default" @keyup.enter="addExercise" />
           <el-button type="primary" :icon="Plus" @click="addExercise" :disabled="!newExName.trim()">Add</el-button>
         </div>
       </div>
 
-      <!-- Footer actions -->
-      <div style="position:sticky; bottom:0; background:#fff; border-top:1px solid #eef0f5; padding:12px 16px; display:flex; gap:8px;">
+      <!-- Sticky footer -->
+      <div style="position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; z-index:100;">
         <el-button @click="drawerOpen = false" style="flex:1;">Cancel</el-button>
-        <el-button type="primary" @click="saveDay" style="flex:2;">Save Day</el-button>
+        <el-button type="primary" @click="saveDay" style="flex:2; font-weight:700;">Save Changes</el-button>
       </div>
     </el-drawer>
   </div>
@@ -125,28 +147,31 @@
 
 <script setup>
 import { ref } from 'vue';
-import { Edit, Delete, Plus, InfoFilled } from '@element-plus/icons-vue';
-import { deepClone, uid } from '../data/workoutPlan.js';
+import { Edit, Delete, Plus } from '@element-plus/icons-vue';
+import { deepClone, muscleStyle, MUSCLE_COLORS } from '../data/workoutPlan.js';
 
 const props = defineProps({ plan: Object });
-const emit = defineEmits(['update-plan']);
+const emit  = defineEmits(['update-plan']);
 
-const drawerOpen = ref(false);
-const editingDayNum = ref(null);
-const editDayData = ref(null);
-const newExName = ref('');
+const drawerOpen     = ref(false);
+const editingDayNum  = ref(null);
+const editDayData    = ref(null);
+const newExName      = ref('');
+
+const muscleOptions = Object.keys(MUSCLE_COLORS);
 
 function openEdit(dayNum) {
   editingDayNum.value = dayNum;
-  editDayData.value = deepClone(props.plan[dayNum]);
-  newExName.value = '';
-  drawerOpen.value = true;
+  editDayData.value   = deepClone(props.plan[dayNum]);
+  newExName.value     = '';
+  drawerOpen.value    = true;
 }
 
 function addExercise() {
   if (!newExName.value.trim()) return;
   editDayData.value.exercises.push({
     name: newExName.value.trim(),
+    muscle: '',
     sets: 3,
     repsTarget: '10',
     type: 'Isolation',
@@ -166,3 +191,122 @@ function saveDay() {
   drawerOpen.value = false;
 }
 </script>
+
+<style scoped>
+/* ── Plan block ── */
+.plan-block {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+/* ── Day label row ── */
+.plan-day-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-left: 4px solid transparent;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.plan-day-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.plan-day-pill {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  border-radius: 20px;
+  padding: 3px 10px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.plan-day-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Exercise list ── */
+.plan-ex-list { padding: 0; }
+
+.plan-ex-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  transition: background 0.1s;
+}
+
+.plan-ex-item:last-of-type { border-bottom: none; }
+.plan-ex-item:hover { background: #fafbff; }
+
+.plan-ex-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-ex-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.plan-ex-sets {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.muscle-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 20px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* ── Coach tip ── */
+.plan-coach-tip {
+  display: flex;
+  gap: 6px;
+  padding: 9px 16px;
+  background: #fffbeb;
+  border-top: 1px solid #fde68a;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+/* ── Edit drawer labels ── */
+.edit-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+</style>
