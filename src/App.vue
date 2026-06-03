@@ -55,6 +55,9 @@
         <button :class="['nav-item', { active: view === 'records' }]"    @click="switchView('records')">
           <span class="nav-icon">🏆</span><span>Personal Records</span>
         </button>
+        <button :class="['nav-item', { active: view === 'analytics' }]"  @click="switchView('analytics')">
+          <span class="nav-icon">📈</span><span>Analytics</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -64,6 +67,15 @@
             <div class="drive-label">{{ driveConnected ? 'Google Drive' : 'Offline' }}</div>
             <div class="drive-sub">{{ driveConnected ? 'All data in Excel' : 'In-memory only' }}</div>
           </div>
+        </div>
+
+        <!-- Dark mode toggle -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.05); border-radius:var(--radius-sm); margin-bottom:4px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">{{ darkMode ? '🌙' : '☀️' }}</span>
+            <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.7);">{{ darkMode ? 'Dark mode' : 'Light mode' }}</span>
+          </div>
+          <el-switch v-model="darkMode" size="small" />
         </div>
 
         <el-dropdown @command="handleCmd" trigger="click" style="width:100%;">
@@ -125,9 +137,10 @@
           :edit-session="editingSession"
           :preloaded-template="preloadedTemplate"
           @save="onSessionSaved"
-          @cancel="editingSession = null; preloadedTemplate = null"
+          @cancel="editingSession = null; preloadedTemplate = null; activeLogSession = false"
           @template-consumed="preloadedTemplate = null"
           @save-template="onSaveTemplate"
+          @session-changed="v => activeLogSession = v"
         />
         <WorkoutHistory
           v-else-if="view === 'history'"
@@ -150,6 +163,10 @@
         />
         <PersonalRecords
           v-else-if="view === 'records'"
+          :sessions="sessions" :plan="plan"
+        />
+        <Analytics
+          v-else-if="view === 'analytics'"
           :sessions="sessions" :plan="plan"
         />
       </main>
@@ -210,8 +227,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ref, computed, watch } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Loading, Refresh, SwitchButton, Key, Download, Menu } from '@element-plus/icons-vue';
 
 import AuthScreen     from './components/AuthScreen.vue';
@@ -222,6 +239,7 @@ import WorkoutHistory from './components/WorkoutHistory.vue';
 import Templates      from './components/Templates.vue';
 import BodyWeight     from './components/BodyWeight.vue';
 import PersonalRecords from './components/PersonalRecords.vue';
+import Analytics       from './components/Analytics.vue';
 
 import { DEFAULT_PLAN, deepClone, today } from './data/workoutPlan.js';
 import * as Drive from './services/googleDrive.js';
@@ -278,6 +296,15 @@ const view              = ref('dashboard');
 const editingSession    = ref(null);
 const preloadedTemplate = ref(null);
 const mobileMenuOpen    = ref(false);
+const activeLogSession  = ref(false);
+const darkMode          = ref(localStorage.getItem('wl_dark') === '1');
+
+watch(darkMode, v => {
+  document.documentElement.classList.toggle('dark', v);
+  localStorage.setItem('wl_dark', v ? '1' : '0');
+}, { immediate: true }); // true when Log Workout has unsaved data
+
+const hasUnsavedSession = computed(() => view.value === 'log' && activeLogSession.value);
 
 const allNavItems = [
   { view: 'dashboard',  icon: '🏠', label: 'Dashboard' },
@@ -287,6 +314,7 @@ const allNavItems = [
   { view: 'templates',  icon: '📄', label: 'Templates' },
   { view: 'bodyweight', icon: '⚖️', label: 'Body Weight' },
   { view: 'records',    icon: '🏆', label: 'Personal Records' },
+  { view: 'analytics',  icon: '📈', label: 'Analytics' },
 ];
 
 // ── Drive file IDs ─────────────────────────────────────────────────────────
@@ -296,7 +324,7 @@ const driveIds = { plan: null, log: null, weight: null, templates: null };
 const pageTitle = computed(() => ({
   dashboard: 'Dashboard', plan: 'Weekly Plan', log: 'Log Workout',
   history: 'History', templates: 'Templates', bodyweight: 'Body Weight',
-  records: 'Personal Records',
+  records: 'Personal Records', analytics: 'Analytics',
 }[view.value] || 'Dashboard'));
 
 const currentDate = computed(() =>
@@ -494,6 +522,27 @@ function isSessionExpired(err) {
 
 // ── Event handlers ─────────────────────────────────────────────────────────
 function switchView(v) {
+  // Warn if navigating away from an active unsaved session
+  if (v !== 'log' && view.value === 'log' && hasUnsavedSession.value) {
+    ElMessageBox.confirm(
+      'You have an active session with unsaved data. Leave without saving?',
+      'Unsaved Session',
+      {
+        confirmButtonText: 'Leave',
+        cancelButtonText: 'Stay & Save',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+      }
+    ).then(() => {
+      // User confirmed leave
+      editingSession.value = null;
+      preloadedTemplate.value = null;
+      view.value = v;
+    }).catch(() => {
+      // User chose to stay — do nothing
+    });
+    return;
+  }
   if (v !== 'log') { editingSession.value = null; preloadedTemplate.value = null; }
   view.value = v;
 }

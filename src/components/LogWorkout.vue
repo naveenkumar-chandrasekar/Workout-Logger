@@ -344,7 +344,7 @@ import { sessionFromPlan, newCustomSession, makeSets, uid, today, deepClone } fr
 import { computePRs, getPRType as _getPRType, PR_LABELS } from '../composables/usePRs.js';
 
 const props = defineProps({ plan: Object, sessions: Array, editSession: Object, preloadedTemplate: Object });
-const emit  = defineEmits(['save', 'cancel', 'template-consumed', 'save-template']);
+const emit  = defineEmits(['save', 'cancel', 'template-consumed', 'save-template', 'session-changed']);
 
 const selectedDate    = ref(today());
 const selectedDay     = ref(null);
@@ -425,6 +425,7 @@ function startSession() {
     ? newCustomSession(selectedDate.value, customLabel.value)
     : sessionFromPlan(selectedDay.value, props.plan, selectedDate.value);
   expandAll();
+  emit('session-changed', true);
 }
 
 function expandAll() {
@@ -479,6 +480,7 @@ async function saveSession() {
     if (!editMode.value) {
       session.value = null;
       selectedDay.value = null;
+      emit('session-changed', false);
     }
   } finally { saving.value = false; }
 }

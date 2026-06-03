@@ -27,6 +27,42 @@
   --shadow-lg: 0 8px 32px rgba(15,15,26,0.12);
 }
 
+/* ── Dark mode ── */
+.dark {
+  --surface: #0f0f1a;
+  --card: #1a1a2e;
+  --border: #2a2a42;
+  --text-1: #f0f0ff;
+  --text-2: #a0a0c0;
+  --text-3: #5a5a7a;
+  --primary-light: #2a2060;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.dark .main-header   { background: #1a1a2e; border-color: #2a2a42; }
+.dark .el-input__wrapper  { background: #12122a !important; }
+.dark .el-select__wrapper { background: #12122a !important; }
+.dark .el-textarea__inner { background: #12122a !important; color: var(--text-1) !important; }
+.dark .el-dialog  { background: #1a1a2e !important; }
+.dark .el-dialog__header { border-color: #2a2a42 !important; }
+.dark .el-drawer  { background: #1a1a2e !important; }
+.dark .el-drawer__header { border-color: #2a2a42 !important; background: #1a1a2e !important; }
+.dark .el-drawer__body   { background: #1a1a2e !important; }
+.dark .el-dropdown-menu  { background: #1a1a2e !important; border-color: #2a2a42 !important; }
+.dark .el-dropdown-menu__item { color: var(--text-2) !important; }
+.dark .el-dropdown-menu__item:hover { background: #2a2a42 !important; color: var(--text-1) !important; }
+.dark .el-table  { background: #1a1a2e !important; color: var(--text-1) !important; }
+.dark .el-table th { background: #12122a !important; color: var(--text-2) !important; border-color: #2a2a42 !important; }
+.dark .el-table td { border-color: #2a2a42 !important; }
+.dark .el-table tr { background: #1a1a2e !important; }
+.dark .el-table--striped .el-table__row--striped td { background: #12122a !important; }
+.dark .el-popover { background: #1a1a2e !important; border-color: #2a2a42 !important; color: var(--text-1) !important; }
+.dark .el-tag--info { background: #2a2a42 !important; border-color: #3a3a5a !important; color: var(--text-2) !important; }
+.dark .plan-day-row, .dark .tpl-stats-row, .dark .exercises-section-header,
+.dark .dash-card-header, .dark .bw-card-header, .dark .notes-card-header { background: #12122a !important; }
+.dark .el-collapse-transition { background: transparent; }
+
 html, body, #app {
   height: 100%;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;

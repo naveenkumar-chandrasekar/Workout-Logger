@@ -6,7 +6,14 @@
         <div class="page-title">Workout History</div>
         <div class="page-subtitle">{{ sessions.length }} sessions · {{ totalSetsAll }} sets · {{ uniqueDays }} training days</div>
       </div>
-      <div style="display:flex; align-items:center; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <el-input
+          v-model="searchExercise"
+          placeholder="Search by exercise…"
+          :prefix-icon="Search"
+          clearable
+          style="width:220px;"
+        />
         <el-select v-model="filterDay" placeholder="All days" clearable style="width:180px;">
           <el-option v-for="n in 6" :key="n" :label="`Day ${n} — ${plan[n]?.label}`" :value="n" />
           <el-option label="Custom workouts" value="custom" />
@@ -84,11 +91,20 @@
       </div>
     </div>
 
+    <!-- Search result notice -->
+    <div v-if="searchExercise.trim() && filteredSessions.length"
+      style="display:flex; align-items:center; gap:8px; margin-bottom:14px; padding:10px 14px; background:var(--primary-light); border-radius:var(--radius-md); font-size:13px; color:var(--primary);">
+      <el-icon><Search /></el-icon>
+      <span>Found <strong>{{ filteredSessions.length }}</strong> session{{ filteredSessions.length !== 1 ? 's' : '' }} containing "<strong>{{ searchExercise.trim() }}</strong>"</span>
+      <el-button size="small" text style="margin-left:auto; color:var(--primary);" @click="searchExercise = ''">Clear</el-button>
+    </div>
+
     <!-- Empty state -->
     <div v-if="!filteredSessions.length" class="empty-state" style="margin-top:60px;">
-      <div class="empty-icon">📋</div>
-      <div class="empty-title">No sessions yet</div>
-      <div class="empty-desc">Go to Log Workout to record your first session.</div>
+      <div class="empty-icon">{{ searchExercise.trim() ? '🔍' : '📋' }}</div>
+      <div class="empty-title">{{ searchExercise.trim() ? 'No sessions found' : 'No sessions yet' }}</div>
+      <div class="empty-desc">{{ searchExercise.trim() ? `No sessions contain "${searchExercise.trim()}"` : 'Go to Log Workout to record your first session.' }}</div>
+      <el-button v-if="searchExercise.trim()" size="small" plain style="margin-top:12px;" @click="searchExercise = ''">Clear search</el-button>
     </div>
 
     <!-- Data table -->
@@ -165,7 +181,8 @@
                   <div class="detail-panel">
                     <!-- Exercise chips grid -->
                     <div class="detail-exercises">
-                      <div v-for="ex in s.exercises" :key="ex.id" class="detail-ex-card">
+                      <div v-for="ex in s.exercises" :key="ex.id" class="detail-ex-card"
+                        :style="matchedExercise && ex.name.toLowerCase().includes(matchedExercise) ? { border: '1.5px solid var(--primary)', background: 'var(--primary-light)' } : {}">
                         <div class="detail-ex-header">
                           <span style="font-size:13px; font-weight:700; color:var(--text-1);">{{ ex.name }}</span>
                           <el-tag :type="ex.type==='Compound'?'warning':'info'" size="small" effect="plain">{{ ex.type }}</el-tag>
@@ -209,7 +226,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Edit, Delete, Download } from '@element-plus/icons-vue';
+import { Edit, Delete, Download, Search } from '@element-plus/icons-vue';
 import { exportToExcel } from '../composables/useExport.js';
 
 const props = defineProps({ sessions: Array, plan: Object, bodyWeights: Array });
@@ -243,15 +260,32 @@ function doExport() {
   ElMessage.success('Excel file downloaded!');
 }
 
-const filterDay = ref(null);
-const expanded  = ref(new Set());
+const filterDay      = ref(null);
+const searchExercise = ref('');
+const expanded       = ref(new Set());
 
 const filteredSessions = computed(() => {
-  const all = [...props.sessions].sort((a, b) => b.date.localeCompare(a.date));
-  if (!filterDay.value) return all;
-  if (filterDay.value === 'custom') return all.filter(s => s.isCustom);
-  return all.filter(s => s.dayNumber === filterDay.value);
+  let all = [...props.sessions].sort((a, b) => b.date.localeCompare(a.date));
+
+  // Filter by day
+  if (filterDay.value) {
+    if (filterDay.value === 'custom') all = all.filter(s => s.isCustom);
+    else all = all.filter(s => s.dayNumber === filterDay.value);
+  }
+
+  // Filter by exercise name search
+  if (searchExercise.value.trim()) {
+    const q = searchExercise.value.toLowerCase().trim();
+    all = all.filter(s =>
+      s.exercises.some(ex => ex.name.toLowerCase().includes(q))
+    );
+  }
+
+  return all;
 });
+
+// Which exercises matched the search (for highlighting)
+const matchedExercise = computed(() => searchExercise.value.toLowerCase().trim());
 
 const groupedSessions = computed(() => {
   const g = {};
