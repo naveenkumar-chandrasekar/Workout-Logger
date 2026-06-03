@@ -280,6 +280,26 @@
 
       </div>
     </div>
+
+    <!-- ── Milestone badges ── -->
+    <div v-if="earnedBadges.length" style="margin-top:20px;">
+      <div class="section-title">Achievements</div>
+      <div class="badges-grid">
+        <div
+          v-for="b in earnedBadges"
+          :key="b.id"
+          class="badge-card"
+          :class="{ 'badge-new': b.isNew }"
+          :title="b.desc"
+        >
+          <div class="badge-icon">{{ b.icon }}</div>
+          <div class="badge-name">{{ b.name }}</div>
+          <div class="badge-desc">{{ b.desc }}</div>
+          <div v-if="b.isNew" class="badge-new-tag">New!</div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -472,6 +492,72 @@ const maxMuscleCount = computed(() => Math.max(...muscleFreq.value.map(m => m.co
 function dayLoggedCount(n) {
   return props.sessions.filter(s => s.dayNumber === n).length;
 }
+
+// ── Milestone badges ───────────────────────────────────────────────────────
+const MILESTONES = [
+  { id: 'first_session',   icon: '🏋️', name: 'First Step',       desc: 'Logged your first workout',          check: (s) => s.length >= 1 },
+  { id: 'sessions_5',      icon: '🔥', name: 'On a Roll',         desc: '5 sessions logged',                  check: (s) => s.length >= 5 },
+  { id: 'sessions_10',     icon: '💪', name: '10 Sessions',        desc: '10 sessions logged',                 check: (s) => s.length >= 10 },
+  { id: 'sessions_25',     icon: '⚡', name: '25 Sessions',        desc: '25 sessions logged',                 check: (s) => s.length >= 25 },
+  { id: 'sessions_50',     icon: '🚀', name: '50 Sessions',        desc: '50 sessions logged',                 check: (s) => s.length >= 50 },
+  { id: 'sessions_100',    icon: '💯', name: 'Century Club',       desc: '100 sessions logged',                check: (s) => s.length >= 100 },
+  { id: 'streak_3',        icon: '📅', name: '3-Day Streak',       desc: '3 consecutive training days',        check: (s, st) => st >= 3 },
+  { id: 'streak_7',        icon: '🗓️', name: 'Week Warrior',       desc: '7-day training streak',              check: (s, st) => st >= 7 },
+  { id: 'streak_14',       icon: '🏅', name: '2-Week Streak',      desc: '14-day training streak',             check: (s, st) => st >= 14 },
+  { id: 'full_week',       icon: '⭐', name: 'Full Week',           desc: 'All 6 days trained in one week',     check: (s) => hasFullWeek(s) },
+  { id: 'first_pr',        icon: '🏆', name: 'First PR',           desc: 'Beat a personal record',             check: (s) => hasPR(s) },
+  { id: 'all_days',        icon: '🎯', name: 'All Days Done',       desc: 'Logged all 6 workout days at least once', check: (s) => allDaysLogged(s) },
+  { id: 'cardio_10',       icon: '🏃', name: 'Cardio Lover',        desc: '10 sessions with cardio logged',     check: (s) => s.filter(x => Object.values(x.cardio ?? {}).some(c => c.done)).length >= 10 },
+];
+
+function hasFullWeek(sessions) {
+  const weekMap = {};
+  sessions.forEach(s => {
+    const d = new Date(s.date);
+    const day = d.getDay() || 7;
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - (day - 1));
+    const key = mon.toISOString().slice(0, 10);
+    if (!weekMap[key]) weekMap[key] = new Set();
+    if (s.dayNumber) weekMap[key].add(s.dayNumber);
+  });
+  return Object.values(weekMap).some(days => days.size >= 6);
+}
+
+function hasPR(sessions) {
+  const bests = {};
+  for (const s of [...sessions].sort((a, b) => a.date.localeCompare(b.date))) {
+    for (const ex of s.exercises) {
+      for (const set of ex.sets) {
+        const w = Number(set.weight) || 0;
+        const r = Number(set.reps) || 0;
+        if (!r) continue;
+        const key = ex.name;
+        if (bests[key] && w > bests[key]) return true;
+        if (!bests[key] && w > 0) bests[key] = w;
+        else if (bests[key]) bests[key] = Math.max(bests[key], w);
+      }
+    }
+  }
+  return false;
+}
+
+function allDaysLogged(sessions) {
+  const days = new Set(sessions.map(s => s.dayNumber).filter(Boolean));
+  return days.size >= 6;
+}
+
+const earnedBadges = computed(() => {
+  const s  = props.sessions;
+  const st = streak.value;
+  const prev = JSON.parse(localStorage.getItem('wl_badges') || '[]');
+  const earned = MILESTONES.filter(m => m.check(s, st));
+  // mark newly earned badges
+  const result = earned.map(m => ({ ...m, isNew: !prev.includes(m.id) }));
+  // persist
+  localStorage.setItem('wl_badges', JSON.stringify(earned.map(m => m.id)));
+  return result;
+});
 </script>
 
 <style scoped>
@@ -705,4 +791,45 @@ function dayLoggedCount(n) {
 /* Today's card body padding */
 .dash-card > div:not(.dash-card-header) { padding: 16px 18px; }
 .today-exercises { padding: 0 !important; margin: 0; }
+
+/* ── Badges ── */
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.badge-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 12px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.badge-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.badge-card.badge-new {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, #fffbeb, #fff);
+}
+
+.badge-icon { font-size: 32px; margin-bottom: 6px; line-height: 1; }
+.badge-name { font-size: 12px; font-weight: 700; color: var(--text-1); margin-bottom: 3px; }
+.badge-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+
+.badge-new-tag {
+  position: absolute;
+  top: -6px; right: -6px;
+  background: #f59e0b;
+  color: #78350f;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
 </style>

@@ -142,9 +142,20 @@
             </div>
 
             <!-- Exercise rows -->
-            <div v-for="(ex, exIdx) in session.exercises" :key="ex.id" class="exercise-row-wrap">
+            <div
+              v-for="(ex, exIdx) in session.exercises"
+              :key="ex.id"
+              class="exercise-row-wrap"
+              v-bind="logDrag.handlers(exIdx)"
+              :class="{
+                'drag-item':     logDrag.dragIdx.value === exIdx,
+                'drag-over-top': logDrag.overIdx.value === exIdx && logDrag.dragIdx.value !== null && logDrag.dragIdx.value > exIdx,
+                'drag-over-bot': logDrag.overIdx.value === exIdx && logDrag.dragIdx.value !== null && logDrag.dragIdx.value < exIdx,
+              }"
+            >
               <!-- Exercise name row -->
               <div class="ex-title-row" @click="toggleExpand(ex.id)">
+                <span class="drag-handle" @click.stop title="Drag to reorder">⠿</span>
                 <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
                   <span class="chevron" :class="{ open: expanded.has(ex.id) }">▶</span>
                   <span style="font-size:14px; font-weight:700; color:var(--text-1);">{{ ex.name }}</span>
@@ -342,6 +353,7 @@ import { ElMessage } from 'element-plus';
 import { ArrowLeft, Delete, Plus, Close, Search, Check } from '@element-plus/icons-vue';
 import { sessionFromPlan, newCustomSession, makeSets, uid, today, deepClone } from '../data/workoutPlan.js';
 import { computePRs, getPRType as _getPRType, PR_LABELS } from '../composables/usePRs.js';
+import { useDragSort } from '../composables/useDragSort.js';
 
 const props = defineProps({ plan: Object, sessions: Array, editSession: Object, preloadedTemplate: Object });
 const emit  = defineEmits(['save', 'cancel', 'template-consumed', 'save-template', 'session-changed']);
@@ -364,6 +376,12 @@ const cardioItems = [
   { key: 'jogging',   label: 'Jogging',    hint: 'Outdoor or track run',   icon: '🏅', bg: '#e8f5e9' },
   { key: 'cycling',   label: 'Cycling',    hint: '15 min steady state',    icon: '🚴', bg: '#e3f2fd' },
 ];
+
+// Drag-to-reorder for session exercises
+const logDrag = useDragSort(
+  () => session.value?.exercises ?? [],
+  (reordered) => { if (session.value) session.value.exercises = reordered; }
+);
 
 // PR map — excludes current session so we detect new PRs in real time
 const prMap = computed(() => {
@@ -761,6 +779,21 @@ watch(() => props.preloadedTemplate, tpl => {
   50%  { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
+
+/* ── Drag to reorder ── */
+.drag-handle {
+  font-size: 18px;
+  color: var(--text-3);
+  cursor: grab;
+  padding: 0 6px 0 2px;
+  flex-shrink: 0;
+  user-select: none;
+  touch-action: none;
+}
+.drag-handle:active { cursor: grabbing; }
+.drag-item { opacity: 0.45; }
+.drag-over-top { border-top: 2px solid var(--primary) !important; }
+.drag-over-bot { border-bottom: 2px solid var(--primary) !important; }
 
 /* ── Mobile overrides ── */
 @media (max-width: 768px) {

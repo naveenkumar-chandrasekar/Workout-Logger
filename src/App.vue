@@ -43,6 +43,9 @@
           <span class="nav-icon">📅</span><span>History</span>
           <span v-if="sessions.length" class="nav-badge">{{ sessions.length }}</span>
         </button>
+        <button :class="['nav-item', { active: view === 'calendar' }]"  @click="switchView('calendar')">
+          <span class="nav-icon">🗓️</span><span>Calendar</span>
+        </button>
         <button :class="['nav-item', { active: view === 'templates' }]"  @click="switchView('templates')">
           <span class="nav-icon">📄</span><span>Templates</span>
           <span v-if="templates.length" class="nav-badge">{{ templates.length }}</span>
@@ -54,9 +57,6 @@
         </button>
         <button :class="['nav-item', { active: view === 'records' }]"    @click="switchView('records')">
           <span class="nav-icon">🏆</span><span>Personal Records</span>
-        </button>
-        <button :class="['nav-item', { active: view === 'analytics' }]"  @click="switchView('analytics')">
-          <span class="nav-icon">📈</span><span>Analytics</span>
         </button>
       </nav>
 
@@ -165,9 +165,10 @@
           v-else-if="view === 'records'"
           :sessions="sessions" :plan="plan"
         />
-        <Analytics
-          v-else-if="view === 'analytics'"
+        <CalendarView
+          v-else-if="view === 'calendar'"
           :sessions="sessions" :plan="plan"
+          @edit-session="onEditSession"
         />
       </main>
     </div>
@@ -239,7 +240,7 @@ import WorkoutHistory from './components/WorkoutHistory.vue';
 import Templates      from './components/Templates.vue';
 import BodyWeight     from './components/BodyWeight.vue';
 import PersonalRecords from './components/PersonalRecords.vue';
-import Analytics       from './components/Analytics.vue';
+import CalendarView   from './components/CalendarView.vue';
 
 import { DEFAULT_PLAN, deepClone, today } from './data/workoutPlan.js';
 import * as Drive from './services/googleDrive.js';
@@ -314,7 +315,7 @@ const allNavItems = [
   { view: 'templates',  icon: '📄', label: 'Templates' },
   { view: 'bodyweight', icon: '⚖️', label: 'Body Weight' },
   { view: 'records',    icon: '🏆', label: 'Personal Records' },
-  { view: 'analytics',  icon: '📈', label: 'Analytics' },
+  { view: 'calendar',  icon: '🗓️', label: 'Calendar' },
 ];
 
 // ── Drive file IDs ─────────────────────────────────────────────────────────
@@ -324,7 +325,7 @@ const driveIds = { plan: null, log: null, weight: null, templates: null };
 const pageTitle = computed(() => ({
   dashboard: 'Dashboard', plan: 'Weekly Plan', log: 'Log Workout',
   history: 'History', templates: 'Templates', bodyweight: 'Body Weight',
-  records: 'Personal Records', analytics: 'Analytics',
+  records: 'Personal Records', calendar: 'Calendar',
 }[view.value] || 'Dashboard'));
 
 const currentDate = computed(() =>

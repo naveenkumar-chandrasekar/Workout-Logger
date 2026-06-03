@@ -94,10 +94,17 @@
         <div
           v-for="(ex, idx) in editDayData.exercises"
           :key="idx"
-          style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow-sm);"
+          v-bind="planDrag.handlers(idx)"
+          :class="{
+            'plan-drag-item':     planDrag.dragIdx.value === idx,
+            'plan-drag-over-top': planDrag.overIdx.value === idx && planDrag.dragIdx.value !== null && planDrag.dragIdx.value > idx,
+            'plan-drag-over-bot': planDrag.overIdx.value === idx && planDrag.dragIdx.value !== null && planDrag.dragIdx.value < idx,
+          }"
+          style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow-sm); cursor:default;"
         >
-          <!-- Row 1: number + name + delete -->
+          <!-- Row 1: drag handle + number + name + delete -->
           <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <span class="plan-drag-handle" title="Drag to reorder">⠿</span>
             <div style="width:22px; height:22px; border-radius:6px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--primary); flex-shrink:0;">
               {{ idx + 1 }}
             </div>
@@ -155,6 +162,7 @@
 import { ref } from 'vue';
 import { Edit, Delete, Plus } from '@element-plus/icons-vue';
 import { deepClone, muscleStyle, MUSCLE_COLORS } from '../data/workoutPlan.js';
+import { useDragSort } from '../composables/useDragSort.js';
 
 const props = defineProps({ plan: Object });
 const emit  = defineEmits(['update-plan']);
@@ -165,6 +173,12 @@ const editDayData    = ref(null);
 const newExName      = ref('');
 
 const muscleOptions = Object.keys(MUSCLE_COLORS);
+
+// Drag-to-reorder for plan edit drawer
+const planDrag = useDragSort(
+  () => editDayData.value?.exercises ?? [],
+  (reordered) => { if (editDayData.value) editDayData.value.exercises = reordered; }
+);
 
 function openEdit(dayNum) {
   editingDayNum.value = dayNum;
@@ -315,4 +329,18 @@ function saveDay() {
   letter-spacing: 0.5px;
   margin-bottom: 4px;
 }
+
+.plan-drag-handle {
+  font-size: 18px;
+  color: var(--text-3);
+  cursor: grab;
+  padding: 0 4px;
+  flex-shrink: 0;
+  user-select: none;
+  touch-action: none;
+}
+.plan-drag-handle:active { cursor: grabbing; }
+.plan-drag-item     { opacity: 0.45; }
+.plan-drag-over-top { border-top: 2px solid var(--primary) !important; }
+.plan-drag-over-bot { border-bottom: 2px solid var(--primary) !important; }
 </style>
