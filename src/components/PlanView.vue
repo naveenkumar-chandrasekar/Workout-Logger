@@ -52,6 +52,9 @@
       direction="rtl"
       size="480px"
       :destroy-on-close="false"
+      :append-to-body="true"
+      :modal="true"
+      :close-on-click-modal="true"
     >
       <template #header>
         <div style="display:flex; align-items:center; gap:10px;">
