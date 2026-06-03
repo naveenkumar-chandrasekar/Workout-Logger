@@ -164,14 +164,21 @@
                 <div v-if="ex.repsTarget" style="font-size:11px; color:var(--text-3); padding:6px 0 4px; font-weight:600;">
                   🎯 Target: {{ ex.sets.length }} sets × {{ ex.repsTarget }} reps
                 </div>
-                <table class="sets-table">
+                <table class="sets-table" style="table-layout:fixed; width:100%;">
+                  <colgroup>
+                    <col style="width:44px;" />
+                    <col style="width:110px;" />
+                    <col style="width:130px;" />
+                    <col />
+                    <col style="width:38px;" />
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th style="width:40px;">Set</th>
+                      <th>Set</th>
                       <th>Reps</th>
                       <th>Weight (kg)</th>
-                      <th style="width:80px; text-align:right;">Status</th>
-                      <th style="width:36px;"></th>
+                      <th style="text-align:left;">Status</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -180,19 +187,18 @@
                         <div :class="['set-num', { done: isSetDone(set) }]">{{ si + 1 }}</div>
                       </td>
                       <td>
-                        <el-input v-model="set.reps" placeholder="–" class="set-input" size="small" style="max-width:100px;" />
+                        <el-input v-model="set.reps" placeholder="–" class="set-input" size="small" style="width:96px;" />
                       </td>
                       <td>
-                        <el-input v-model="set.weight" placeholder="–" class="set-input" size="small" style="max-width:100px;" />
+                        <el-input v-model="set.weight" placeholder="–" class="set-input" size="small" style="width:110px;" />
                       </td>
-                      <td style="text-align:right; white-space:nowrap;">
+                      <td style="white-space:nowrap;">
                         <span
                           v-if="getPRType(ex.name, set.weight, set.reps)"
                           class="pr-live-badge"
-                          :title="PR_LABELS[getPRType(ex.name, set.weight, set.reps)]"
                         >{{ PR_LABELS[getPRType(ex.name, set.weight, set.reps)] }}</span>
                         <span v-else-if="isSetDone(set)" style="font-size:12px; font-weight:600; color:var(--success);">✓ Done</span>
-                        <span v-else style="font-size:12px; color:var(--text-3);">Pending</span>
+                        <span v-else style="font-size:12px; color:var(--text-3);">–</span>
                       </td>
                       <td>
                         <el-button :icon="Close" plain size="small" circle type="info" @click="removeSet(ex, si)" />
@@ -244,10 +250,8 @@
           </div>
 
           <!-- ── Notes + Save ── -->
-          <div class="exercises-section" style="margin-top:20px;">
-            <div class="exercises-section-header">
-              <span style="font-size:14px; font-weight:700; color:var(--text-1);">Notes</span>
-            </div>
+          <div style="margin-top:20px;">
+            <div style="font-size:11px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">Notes</div>
             <el-input
               v-model="session.notes"
               type="textarea"
@@ -256,8 +260,8 @@
               style="width:100%;"
             />
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
-              <el-button v-if="editMode" @click="$emit('cancel')" style="min-width:100px;">Cancel</el-button>
-              <el-button type="primary" :loading="saving" @click="saveSession" style="min-width:160px; font-weight:700;">
+              <el-button v-if="editMode" @click="$emit('cancel')" style="min-width:100px; height:40px; border-radius:10px;">Cancel</el-button>
+              <el-button type="primary" :loading="saving" @click="saveSession" style="min-width:160px; height:40px; font-weight:700; border-radius:10px;">
                 {{ editMode ? '✓ Update Session' : '✓ Save Workout' }}
               </el-button>
             </div>
@@ -675,17 +679,17 @@ watch(() => props.preloadedTemplate, tpl => {
 /* Sets table */
 .sets-table-wrap { padding: 4px 18px 14px; background: #fafbff; }
 
-.sets-table { width: 100%; border-collapse: collapse; }
+.sets-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
 .sets-table th {
   text-align: left;
   font-size: 10px; font-weight: 700; color: var(--text-3);
   text-transform: uppercase; letter-spacing: 0.6px;
-  padding: 6px 8px;
+  padding: 6px 8px 8px;
   border-bottom: 1px solid var(--border);
 }
 
-.set-tr td { padding: 4px 8px; vertical-align: middle; }
+.set-tr td { padding: 4px 6px; vertical-align: middle; }
 .set-tr:hover td { background: rgba(108,92,231,0.03); }
 
 .set-num {
@@ -754,5 +758,43 @@ watch(() => props.preloadedTemplate, tpl => {
   0%   { transform: scale(1); }
   50%  { transform: scale(1.08); }
   100% { transform: scale(1); }
+}
+
+/* ── Mobile overrides ── */
+@media (max-width: 768px) {
+  /* Kill the fixed-height viewport container — let the page scroll naturally */
+  .log-workspace {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: unset !important;
+  }
+
+  .log-left {
+    height: auto !important;
+    overflow-y: visible !important;
+    border-radius: var(--radius-lg) !important;
+    margin-bottom: 16px;
+  }
+
+  .log-right {
+    padding-left: 0 !important;
+    height: auto !important;
+    overflow-y: visible !important;
+    /* Extra bottom padding so Save button clears the mobile nav bar */
+    padding-bottom: 80px !important;
+  }
+
+  /* Make session header stack on small screens */
+  .session-header-bar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  /* Exercises section full width */
+  .exercises-section { width: 100%; }
+
+  /* Sets table: allow horizontal scroll on very narrow screens */
+  .sets-table-wrap { overflow-x: auto; }
 }
 </style>

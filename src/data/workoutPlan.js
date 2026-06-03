@@ -2,9 +2,11 @@ export const DEFAULT_PLAN = {
   1: {
     label: 'Chest · Shoulder · Triceps',
     color: '#6c5ce7',
-    muscles: ['Chest', 'Shoulder', 'Triceps'],
-    coachTip: 'Start with compound presses while fresh. Rest 90 sec between compound sets, 60 sec on isolation.',
+    muscles: ['Core', 'Chest', 'Shoulder', 'Triceps'],
+    coachTip: 'Start with Push Up + Pull Up as daily core. Then compound presses. Rest 90 sec between compound sets, 60 sec on isolation.',
     exercises: [
+      { name: 'Push Up',  muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Full range · chest to floor · keep core tight' },
+      { name: 'Pull Up',  muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Dead hang start · chin over bar · control descent' },
       { name: 'Flat Bench Press',      muscle: 'Chest',    sets: 4, repsTarget: '8-10', type: 'Compound',  tip: '45–60 kg · controlled descent · retract scapula' },
       { name: 'Neutral Bench Press',   muscle: 'Chest',    sets: 3, repsTarget: '10',   type: 'Isolation', tip: 'Neutral grip · feel the stretch at bottom' },
       { name: 'Shoulder Press',        muscle: 'Shoulder', sets: 4, repsTarget: '10',   type: 'Compound',  tip: "30–40 kg · don't lock out fully at top" },
@@ -16,9 +18,11 @@ export const DEFAULT_PLAN = {
   2: {
     label: 'Back · Biceps · Legs',
     color: '#00b894',
-    muscles: ['Back', 'Biceps', 'Legs'],
-    coachTip: 'Do heavy rows and squats first. Rest 90–120 sec for compounds, 60 sec for arms.',
+    muscles: ['Core', 'Back', 'Biceps', 'Legs'],
+    coachTip: 'Start with Push Up + Pull Up as daily core. Do heavy rows and squats first. Rest 90–120 sec for compounds, 60 sec for arms.',
     exercises: [
+      { name: 'Push Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Full range · chest to floor · keep core tight' },
+      { name: 'Pull Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Dead hang start · chin over bar · control descent' },
       { name: 'Front Pulldown',  muscle: 'Back',   sets: 4, repsTarget: '10',   type: 'Compound',  tip: 'Wide grip · pull bar to upper chest' },
       { name: 'T-Bar Row',       muscle: 'Back',   sets: 4, repsTarget: '8-10', type: 'Compound',  tip: '50–70 kg · hinge at hips · neutral spine' },
       { name: 'Front Pull-Up',   muscle: 'Back',   sets: 3, repsTarget: 'max',  type: 'Compound',  tip: 'Bodyweight or assisted · full hang at bottom' },
@@ -31,9 +35,11 @@ export const DEFAULT_PLAN = {
   3: {
     label: 'Chest · Shoulder · Biceps · Triceps',
     color: '#e17055',
-    muscles: ['Chest', 'Shoulder', 'Biceps', 'Triceps'],
-    coachTip: 'Arnold Press replaces Upright Row to avoid overlap with Day 1 shoulder pressing.',
+    muscles: ['Core', 'Chest', 'Shoulder', 'Biceps', 'Triceps'],
+    coachTip: 'Start with Push Up + Pull Up as daily core. Arnold Press replaces Upright Row to avoid overlap with Day 1.',
     exercises: [
+      { name: 'Push Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Full range · chest to floor · keep core tight' },
+      { name: 'Pull Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Dead hang start · chin over bar · control descent' },
       { name: 'Incline Chest Press',   muscle: 'Chest',    sets: 4, repsTarget: '10', type: 'Compound',  tip: '30–40° incline · targets upper chest' },
       { name: 'Bench Bend Arm Curl',   muscle: 'Biceps',   sets: 3, repsTarget: '12', type: 'Isolation', tip: 'Full stretch at bottom of each rep' },
       { name: 'Arnold Press',          muscle: 'Shoulder', sets: 3, repsTarget: '12', type: 'Isolation', tip: 'Full delt rotation · 12–16 kg DBs' },
@@ -45,9 +51,11 @@ export const DEFAULT_PLAN = {
   4: {
     label: 'Back · Biceps · Legs',
     color: '#0984e3',
-    muscles: ['Back', 'Biceps', 'Legs'],
-    coachTip: 'Complement to Day 2 with different angles. Close-grip pulldown hits lats differently from wide grip.',
+    muscles: ['Core', 'Back', 'Biceps', 'Legs'],
+    coachTip: 'Start with Push Up + Pull Up as daily core. Close-grip pulldown hits lats differently from wide grip.',
     exercises: [
+      { name: 'Push Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Full range · chest to floor · keep core tight' },
+      { name: 'Pull Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Dead hang start · chin over bar · control descent' },
       { name: 'Close-Grip Pulldown', muscle: 'Back',   sets: 4, repsTarget: '10', type: 'Compound',  tip: 'V-bar · elbows drive straight down' },
       { name: 'Seated Row',          muscle: 'Back',   sets: 4, repsTarget: '10', type: 'Compound',  tip: "Retract scapula fully · don't round back" },
       { name: 'Preacher Curl',       muscle: 'Biceps', sets: 3, repsTarget: '10', type: 'Isolation', tip: 'Full stretch at bottom · strict form' },
@@ -59,9 +67,11 @@ export const DEFAULT_PLAN = {
   5: {
     label: 'Chest · Shoulder · Triceps',
     color: '#a29bfe',
-    muscles: ['Chest', 'Shoulder', 'Triceps'],
-    coachTip: 'Face pulls protect shoulder health — never skip. High Extension complements Day 1 Cable Pushdown.',
+    muscles: ['Core', 'Chest', 'Shoulder', 'Triceps'],
+    coachTip: 'Start with Push Up + Pull Up as daily core. Face pulls protect shoulder health — never skip.',
     exercises: [
+      { name: 'Push Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Full range · chest to floor · keep core tight' },
+      { name: 'Pull Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Dead hang start · chin over bar · control descent' },
       { name: 'Decline Press',    muscle: 'Chest',    sets: 4, repsTarget: '10',  type: 'Compound',  tip: 'Targets lower chest · keep elbows at 75°' },
       { name: 'Chest Flyes',      muscle: 'Chest',    sets: 3, repsTarget: '12',  type: 'Isolation', tip: 'Dumbbells or cables · full arc · slight bend' },
       { name: 'Face Pull',        muscle: 'Shoulder', sets: 3, repsTarget: '15',  type: 'Isolation', tip: 'Rope · pull to forehead · external rotation' },
@@ -73,9 +83,11 @@ export const DEFAULT_PLAN = {
   6: {
     label: 'Back · Biceps · Legs',
     color: '#00cec9',
-    muscles: ['Back', 'Biceps', 'Legs'],
-    coachTip: 'Straight-Arm Pulldown replaces Back Pulldown — avoids a third lat pulldown variation across the week.',
+    muscles: ['Core', 'Back', 'Biceps', 'Legs'],
+    coachTip: 'Start with Push Up + Pull Up as daily core. Straight-Arm Pulldown avoids a third lat pulldown variation.',
     exercises: [
+      { name: 'Push Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Full range · chest to floor · keep core tight' },
+      { name: 'Pull Up', muscle: 'Core', sets: 4, repsTarget: 'max', type: 'Compound', tip: 'Dead hang start · chin over bar · control descent' },
       { name: 'Straight-Arm Pulldown', muscle: 'Back',   sets: 4, repsTarget: '12', type: 'Compound',  tip: 'Cable · different lat movement pattern' },
       { name: 'Dumbbell Row',          muscle: 'Back',   sets: 4, repsTarget: '10', type: 'Compound',  tip: '25–35 kg single arm · elbow past torso' },
       { name: 'Overhead Cable Curl',   muscle: 'Biceps', sets: 3, repsTarget: '12', type: 'Isolation', tip: 'Cable at head height · long head bicep focus' },
@@ -88,6 +100,7 @@ export const DEFAULT_PLAN = {
 
 // Colour map for muscle tags
 export const MUSCLE_COLORS = {
+  Core:     { bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
   Chest:    { bg: '#fff0f6', color: '#c0256f', border: '#fbb6ce' },
   Shoulder: { bg: '#f0f4ff', color: '#3451b2', border: '#b5c7f7' },
   Triceps:  { bg: '#f3f0ff', color: '#6741d9', border: '#c5b8fb' },

@@ -192,7 +192,13 @@ export function parseBodyWeightXlsx(buffer) {
     return {
       weights: weights
         .filter(r => r.date && r.weight)
-        .map(r => ({ date: String(r.date), weight: Number(r.weight), note: r.note || '' })),
+        .map(r => ({
+          id:     r.id || `${r.date}-${r.time || '00:00'}-${Math.random().toString(36).slice(2,6)}`,
+          date:   String(r.date),
+          time:   r.time   || '',
+          weight: Number(r.weight),
+          note:   r.note   || '',
+        })),
       goal: Number(goal),
     };
   } catch { return { weights: [], goal: 74 }; }
@@ -203,8 +209,8 @@ export function buildBodyWeightXlsx(weights, goal = 74) {
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
     weights.length
-      ? weights.map(w => ({ date: w.date, weight: w.weight, note: w.note || '' }))
-      : emptyRow(['date','weight','note'])
+      ? weights.map(w => ({ id: w.id || '', date: w.date, time: w.time || '', weight: w.weight, note: w.note || '' }))
+      : emptyRow(['id','date','time','weight','note'])
   ), 'Weights');
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([

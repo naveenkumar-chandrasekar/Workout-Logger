@@ -49,8 +49,8 @@
     <!-- Edit Drawer -->
     <el-drawer
       v-model="drawerOpen"
-      direction="btt"
-      size="92%"
+      direction="rtl"
+      size="480px"
       :destroy-on-close="false"
     >
       <template #header>
@@ -60,7 +60,7 @@
         </div>
       </template>
 
-      <div v-if="editDayData" style="padding:16px; overflow-y:auto; height:calc(100% - 56px); padding-bottom:84px;">
+      <div v-if="editDayData" style="padding:16px; overflow-y:auto; height:calc(100% - 116px);"><!-- 56px header + 60px footer -->
 
         <!-- Day meta -->
         <div style="background:var(--surface); border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
@@ -136,8 +136,8 @@
         </div>
       </div>
 
-      <!-- Sticky footer -->
-      <div style="position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; z-index:100;">
+      <!-- Footer -->
+      <div style="position:absolute; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; z-index:100;">
         <el-button @click="drawerOpen = false" style="flex:1;">Cancel</el-button>
         <el-button type="primary" @click="saveDay" style="flex:2; font-weight:700;">Save Changes</el-button>
       </div>

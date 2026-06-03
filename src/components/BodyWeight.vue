@@ -90,18 +90,22 @@
           <table v-else class="bw-table">
             <thead>
               <tr>
-                <th>Date</th>
+                <th>Date & Time</th>
                 <th style="text-align:center;">Weight (kg)</th>
                 <th style="text-align:center;">Change</th>
-                <th style="text-align:center;">vs 74 kg goal</th>
+                <th style="text-align:center;">vs goal</th>
                 <th style="text-align:right; width:60px;"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(entry, idx) in sortedWeights" :key="entry.date" class="bw-table-row">
+              <tr v-for="(entry, idx) in sortedWeights" :key="entry.id" class="bw-table-row">
                 <td>
-                  <span style="font-size:13px; font-weight:600; color:var(--text-2);">{{ formatDate(entry.date) }}</span>
-                  <el-tag v-if="idx === 0" size="small" type="success" effect="light" style="margin-left:6px;">Latest</el-tag>
+                  <div style="font-size:13px; font-weight:600; color:var(--text-2);">{{ formatDate(entry.date) }}</div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                    <span style="font-size:12px; color:var(--text-3);">{{ entry.time || '—' }}</span>
+                    <span v-if="entry.note" style="font-size:11px; color:var(--text-3); font-style:italic;">· {{ entry.note }}</span>
+                    <el-tag v-if="idx === 0" size="small" type="success" effect="light">Latest</el-tag>
+                  </div>
                 </td>
                 <td style="text-align:center; font-size:15px; font-weight:800; color:var(--text-1);">
                   {{ entry.weight }}
@@ -114,9 +118,7 @@
                   <span v-else style="color:var(--text-3); font-size:12px;">—</span>
                 </td>
                 <td style="text-align:center;">
-                  <span
-                    :class="['bw-delta', entry.weight > goal ? 'up' : entry.weight < goal ? 'down' : 'flat']"
-                  >
+                  <span :class="['bw-delta', entry.weight > goal ? 'up' : entry.weight < goal ? 'down' : 'flat']">
                     {{ entry.weight > goal ? '+' : '' }}{{ (entry.weight - goal).toFixed(1) }} kg
                   </span>
                 </td>
@@ -127,7 +129,7 @@
                     type="danger"
                     plain
                     circle
-                    @click="deleteEntry(entry.date)"
+                    @click="deleteEntry(entry.id)"
                   />
                 </td>
               </tr>
@@ -144,17 +146,30 @@
             <span class="bw-card-title">Log weight</span>
           </div>
           <div style="padding:20px 18px; display:flex; flex-direction:column; gap:16px;">
-            <div>
-              <div class="bw-field-label">Date</div>
-              <el-date-picker
-                v-model="form.date"
-                type="date"
-                format="DD MMM YYYY"
-                value-format="YYYY-MM-DD"
-                :clearable="false"
-                style="width:100%;"
-              />
-            </div>
+            <el-row :gutter="10">
+              <el-col :span="14">
+                <div class="bw-field-label">Date</div>
+                <el-date-picker
+                  v-model="form.date"
+                  type="date"
+                  format="DD MMM YYYY"
+                  value-format="YYYY-MM-DD"
+                  :clearable="false"
+                  style="width:100%;"
+                />
+              </el-col>
+              <el-col :span="10">
+                <div class="bw-field-label">Time</div>
+                <el-time-picker
+                  v-model="form.time"
+                  format="HH:mm"
+                  value-format="HH:mm"
+                  :clearable="false"
+                  style="width:100%;"
+                  placeholder="HH:mm"
+                />
+              </el-col>
+            </el-row>
 
             <div>
               <div class="bw-field-label">Weight (kg)</div>
@@ -246,7 +261,12 @@ const goal    = computed({ get: () => props.goal, set: v => emit('update:goal', 
 const goalMin = computed(() => Math.round(props.goal - 10));
 const goalMax = computed(() => Math.round(props.goal + 10));
 
-const form = ref({ date: new Date().toISOString().slice(0, 10), weight: props.goal, note: '' });
+function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+const form = ref({ date: new Date().toISOString().slice(0, 10), time: nowTime(), weight: props.goal, note: '' });
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function formatDate(d) {
@@ -257,7 +277,11 @@ function formatDate(d) {
 
 // ── Sorted data ────────────────────────────────────────────────────────────
 const sortedWeights = computed(() =>
-  [...weights.value].sort((a, b) => b.date.localeCompare(a.date))
+  [...weights.value].sort((a, b) => {
+    const da = `${a.date} ${a.time || '00:00'}`;
+    const db = `${b.date} ${b.time || '00:00'}`;
+    return db.localeCompare(da);
+  })
 );
 
 const latest   = computed(() => sortedWeights.value[0] || null);
@@ -313,21 +337,22 @@ const chartData = computed(() => {
 // ── Log / delete ───────────────────────────────────────────────────────────
 function logEntry() {
   if (!form.value.weight) return;
-  const exists = weights.value.find(w => w.date === form.value.date);
-  let updated;
-  if (exists) {
-    updated = weights.value.map(w =>
-      w.date === form.value.date ? { ...w, weight: form.value.weight, note: form.value.note } : w
-    );
-  } else {
-    updated = [...weights.value, { date: form.value.date, weight: form.value.weight, note: form.value.note || '' }];
-  }
-  emit('update:modelValue', updated);
-  ElMessage.success(exists ? 'Entry updated!' : 'Weight logged!');
+  const newEntry = {
+    id:     `${form.value.date}-${form.value.time}-${Date.now()}`,
+    date:   form.value.date,
+    time:   form.value.time || nowTime(),
+    weight: form.value.weight,
+    note:   form.value.note || '',
+  };
+  emit('update:modelValue', [...weights.value, newEntry]);
+  ElMessage.success('Weight logged!');
+  // reset time to now for next entry
+  form.value.time = nowTime();
+  form.value.note = '';
 }
 
-function deleteEntry(date) {
-  emit('update:modelValue', weights.value.filter(w => w.date !== date));
+function deleteEntry(id) {
+  emit('update:modelValue', weights.value.filter(w => w.id !== id));
 }
 
 // ── Chart rendering ────────────────────────────────────────────────────────

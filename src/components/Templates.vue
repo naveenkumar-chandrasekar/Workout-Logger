@@ -112,19 +112,22 @@
       :title="editingTpl ? 'Edit Template' : 'New Template'"
       width="600px"
       destroy-on-close
+      :close-on-click-modal="false"
     >
-      <el-form label-position="top">
-        <el-form-item label="Template name" required>
+      <div style="display:flex; flex-direction:column; gap:0; max-height:60vh; overflow:hidden;">
+
+      <el-form label-position="top" style="flex-shrink:0;">
+        <el-form-item label="Template name" required style="margin-bottom:12px;">
           <el-input v-model="form.name" placeholder="e.g. Push Day A, Upper Hypertrophy…" size="large" />
         </el-form-item>
       </el-form>
 
-      <div style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="flex-shrink:0; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
         <span class="section-title" style="margin-bottom:0;">Exercises ({{ form.exercises.length }})</span>
         <el-button :icon="Plus" size="small" plain style="border-radius:8px;" @click="addExToForm">Add exercise</el-button>
       </div>
 
-      <div style="max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+      <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; min-height:60px;">
         <div
           v-for="(ex, idx) in form.exercises"
           :key="idx"
@@ -166,6 +169,7 @@
           No exercises added yet.
         </div>
       </div>
+      </div><!-- end flex wrapper -->
 
       <template #footer>
         <el-button @click="createDialogOpen = false">Cancel</el-button>
