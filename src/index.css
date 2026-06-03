@@ -206,6 +206,15 @@ html, body, #app {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 32px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+/* Every page component fills the content area */
+.main-content > .fade-up {
+  flex: 1;
+  min-height: 0;
 }
 
 /* ══════════════════════════════════════════════

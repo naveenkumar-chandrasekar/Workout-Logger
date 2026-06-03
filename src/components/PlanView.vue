@@ -60,7 +60,9 @@
         </div>
       </template>
 
-      <div v-if="editDayData" style="padding:16px; overflow-y:auto; height:calc(100% - 116px);"><!-- 56px header + 60px footer -->
+      <!-- Flex wrapper: scroll area grows, footer stays at bottom -->
+      <div v-if="editDayData" style="display:flex; flex-direction:column; height:100%;">
+      <div style="flex:1; overflow-y:auto; padding:16px 16px 0;">
 
         <!-- Day meta -->
         <div style="background:var(--surface); border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
@@ -130,17 +132,18 @@
         </div>
 
         <!-- Add new -->
-        <div style="display:flex; gap:8px; margin-top:4px;">
+        <div style="display:flex; gap:8px; margin-top:4px; padding-bottom:16px;">
           <el-input v-model="newExName" placeholder="New exercise name…" size="default" @keyup.enter="addExercise" />
           <el-button type="primary" :icon="Plus" @click="addExercise" :disabled="!newExName.trim()">Add</el-button>
         </div>
-      </div>
+      </div><!-- end scroll area -->
 
-      <!-- Footer -->
-      <div style="position:absolute; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; z-index:100;">
+      <!-- Footer — sits naturally at the bottom, no absolute positioning -->
+      <div style="flex-shrink:0; background:#fff; border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px;">
         <el-button @click="drawerOpen = false" style="flex:1;">Cancel</el-button>
         <el-button type="primary" @click="saveDay" style="flex:2; font-weight:700;">Save Changes</el-button>
       </div>
+      </div><!-- end flex wrapper -->
     </el-drawer>
   </div>
 </template>
