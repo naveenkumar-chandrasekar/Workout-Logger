@@ -61,68 +61,86 @@
       </div>
     </div>
 
-    <!-- ── Main grid ── -->
-    <div class="dashboard-grid">
+    <!-- ── Row 1: Today + This week (side by side) ── -->
+    <div class="dashboard-grid" style="margin-bottom:16px;">
 
-      <!-- LEFT column -->
+      <!-- Today's workout -->
+      <div class="dash-card today-card" :style="{ borderLeftColor: todayPlan?.color || '#6c5ce7' }">
+        <div class="dash-card-header">
+          <div>
+            <span class="dash-card-title">Today's workout</span>
+            <div v-if="alreadyLoggedToday" style="margin-top:2px;">
+              <el-tag type="success" size="small" effect="light">✓ Logged today</el-tag>
+            </div>
+          </div>
+          <el-button v-if="todayPlan" type="primary" size="small" style="border-radius:8px; font-weight:700;" @click="$emit('start-day', suggestedDayNum)">
+            Start →
+          </el-button>
+        </div>
+        <div v-if="todayPlan">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+            <div class="today-pill" :style="{ background: todayPlan.color }">Day {{ suggestedDayNum }}</div>
+            <div>
+              <div style="font-size:15px; font-weight:800; color:var(--text-1);">{{ todayPlan.label }}</div>
+              <div style="font-size:12px; color:var(--text-3); margin-top:2px;">{{ todayPlan.muscles.join(' · ') }}</div>
+            </div>
+          </div>
+          <div class="today-exercises">
+            <div v-for="ex in todayPlan.exercises" :key="ex.name" class="today-ex-row">
+              <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                <span class="today-muscle-dot" :style="{ background: muscleStyle(ex.muscle).color }" />
+                <span style="font-size:13px; font-weight:600; color:var(--text-1);">{{ ex.name }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                <span style="font-size:12px; color:var(--text-3);">{{ ex.sets }}×{{ ex.repsTarget }}</span>
+                <span class="muscle-tag" :style="{ background: muscleStyle(ex.muscle).bg, color: muscleStyle(ex.muscle).color, borderColor: muscleStyle(ex.muscle).border }">{{ ex.muscle || '—' }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="todayPlan.coachTip" class="today-tip">💡 {{ todayPlan.coachTip }}</div>
+        </div>
+        <div v-else class="empty-state" style="padding:32px 0;">
+          <div class="empty-icon" style="font-size:36px;">🎉</div>
+          <div class="empty-title" style="font-size:15px;">Rest day</div>
+          <div class="empty-desc">You've completed all 6 days! Take a full rest today.</div>
+        </div>
+      </div>
+
+      <!-- This week + heatmap stacked -->
       <div class="dash-col">
-
-        <!-- Weekly activity -->
         <div class="dash-card">
           <div class="dash-card-header">
             <span class="dash-card-title">This week</span>
             <span class="dash-card-sub">{{ weekRange }}</span>
           </div>
           <div class="week-grid">
-            <div
-              v-for="d in weekDays"
-              :key="d.iso"
-              :class="['week-day', { today: d.isToday, 'has-session': d.sessions.length > 0, future: d.isFuture }]"
-            >
+            <div v-for="d in weekDays" :key="d.iso" :class="['week-day', { today: d.isToday, 'has-session': d.sessions.length > 0, future: d.isFuture }]">
               <div class="week-day-name">{{ d.name }}</div>
               <div class="week-day-num">{{ d.dayNum }}</div>
               <div class="week-day-dots">
-                <div
-                  v-for="s in d.sessions.slice(0,3)"
-                  :key="s.id"
-                  class="week-dot"
-                  :style="{ background: dayColorFor(s) }"
-                  :title="s.dayLabel"
-                />
+                <div v-for="s in d.sessions.slice(0,3)" :key="s.id" class="week-dot" :style="{ background: dayColorFor(s) }" :title="s.dayLabel" />
                 <div v-if="!d.sessions.length && !d.isFuture" class="week-rest">–</div>
               </div>
             </div>
           </div>
-
-          <!-- Week progress bar -->
           <div style="margin-top:16px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
               <span style="font-size:12px; font-weight:600; color:var(--text-2);">Weekly goal</span>
               <span style="font-size:12px; font-weight:700; color:var(--primary);">{{ thisWeekSessions }}/6 days</span>
             </div>
             <div style="background:var(--border); border-radius:99px; height:6px; overflow:hidden;">
-              <div
-                style="height:100%; border-radius:99px; background:linear-gradient(90deg,#6c5ce7,#a29bfe); transition:width 0.4s;"
-                :style="{ width: Math.min(100, (thisWeekSessions/6)*100) + '%' }"
-              />
+              <div style="height:100%; border-radius:99px; background:linear-gradient(90deg,#6c5ce7,#a29bfe); transition:width 0.4s;" :style="{ width: Math.min(100,(thisWeekSessions/6)*100) + '%' }" />
             </div>
           </div>
         </div>
 
-        <!-- Last 30 days heatmap -->
         <div class="dash-card">
           <div class="dash-card-header">
             <span class="dash-card-title">Last 30 days</span>
             <span class="dash-card-sub">{{ last30Trained }} days trained</span>
           </div>
           <div class="heatmap">
-            <div
-              v-for="d in last30Days"
-              :key="d.iso"
-              :class="['heat-cell', { active: d.count > 0, today: d.isToday }]"
-              :style="d.count > 0 ? { background: heatColor(d.count), opacity: 0.85 + d.count * 0.1 } : {}"
-              :title="`${d.label}: ${d.count} session${d.count !== 1 ? 's' : ''}`"
-            />
+            <div v-for="d in last30Days" :key="d.iso" :class="['heat-cell', { active: d.count > 0, today: d.isToday }]" :style="d.count > 0 ? { background: heatColor(d.count), opacity: 0.85 + d.count * 0.1 } : {}" :title="`${d.label}: ${d.count} session${d.count !== 1 ? 's' : ''}`" />
           </div>
           <div style="display:flex; align-items:center; gap:6px; margin-top:10px;">
             <span style="font-size:11px; color:var(--text-3);">Less</span>
@@ -130,159 +148,67 @@
             <span style="font-size:11px; color:var(--text-3);">More</span>
           </div>
         </div>
-
-        <!-- Recent sessions -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <span class="dash-card-title">Recent sessions</span>
-            <el-button size="small" text style="color:var(--primary); font-weight:600;" @click="$emit('go-history')">
-              View all →
-            </el-button>
-          </div>
-          <div v-if="!recentSessions.length" style="padding:20px; text-align:center; color:var(--text-3); font-size:13px;">
-            No sessions logged yet.
-          </div>
-          <div v-for="s in recentSessions" :key="s.id" class="recent-row" @click="$emit('edit-session', s)">
-            <div class="recent-dot" :style="{ background: dayColorFor(s) }" />
-            <div style="flex:1; min-width:0;">
-              <div style="font-size:13px; font-weight:700; color:var(--text-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                {{ s.dayLabel }}
-              </div>
-              <div style="font-size:11px; color:var(--text-3); margin-top:1px;">
-                {{ formatDate(s.date) }} · {{ s.exercises.length }} exercises · {{ totalSetsOf(s) }} sets
-              </div>
-            </div>
-            <el-tag v-if="s.dayNumber" size="small" effect="plain"
-              :style="{ color: dayColorFor(s), borderColor: dayColorFor(s), background: dayColorFor(s)+'18' }">
-              Day {{ s.dayNumber }}
-            </el-tag>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- RIGHT column -->
-      <div class="dash-col">
-
-        <!-- Today's workout -->
-        <div class="dash-card today-card" :style="{ borderLeftColor: todayPlan?.color || '#6c5ce7' }">
-          <div class="dash-card-header">
-            <div>
-              <span class="dash-card-title">Today's workout</span>
-              <div v-if="alreadyLoggedToday" style="margin-top:2px;">
-                <el-tag type="success" size="small" effect="light">✓ Logged today</el-tag>
-              </div>
-            </div>
-            <el-button
-              v-if="todayPlan"
-              type="primary"
-              size="small"
-              style="border-radius:8px; font-weight:700;"
-              @click="$emit('start-day', suggestedDayNum)"
-            >
-              Start →
-            </el-button>
-          </div>
-
-          <div v-if="todayPlan">
-            <!-- Day pill -->
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-              <div class="today-pill" :style="{ background: todayPlan.color }">Day {{ suggestedDayNum }}</div>
-              <div>
-                <div style="font-size:15px; font-weight:800; color:var(--text-1);">{{ todayPlan.label }}</div>
-                <div style="font-size:12px; color:var(--text-3); margin-top:2px;">{{ todayPlan.muscles.join(' · ') }}</div>
-              </div>
-            </div>
-
-            <!-- Exercise list -->
-            <div class="today-exercises">
-              <div
-                v-for="ex in todayPlan.exercises"
-                :key="ex.name"
-                class="today-ex-row"
-              >
-                <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
-                  <span
-                    class="today-muscle-dot"
-                    :style="{ background: muscleStyle(ex.muscle).color }"
-                  />
-                  <span style="font-size:13px; font-weight:600; color:var(--text-1);">{{ ex.name }}</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                  <span style="font-size:12px; color:var(--text-3);">{{ ex.sets }}×{{ ex.repsTarget }}</span>
-                  <span
-                    class="muscle-tag"
-                    :style="{ background: muscleStyle(ex.muscle).bg, color: muscleStyle(ex.muscle).color, borderColor: muscleStyle(ex.muscle).border }"
-                  >{{ ex.muscle || '—' }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Coach tip -->
-            <div v-if="todayPlan.coachTip" class="today-tip">
-              💡 {{ todayPlan.coachTip }}
-            </div>
-          </div>
-
-          <div v-else class="empty-state" style="padding:32px 0;">
-            <div class="empty-icon" style="font-size:36px;">🎉</div>
-            <div class="empty-title" style="font-size:15px;">Rest day</div>
-            <div class="empty-desc">You've completed all 6 days! Take a full rest today.</div>
-          </div>
-        </div>
-
-        <!-- Muscle group split this week -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <span class="dash-card-title">Muscle groups this week</span>
-          </div>
-          <div v-if="!muscleFreq.length" style="padding:16px; text-align:center; font-size:13px; color:var(--text-3);">
-            Log workouts to see muscle frequency.
-          </div>
-          <div v-for="m in muscleFreq" :key="m.name" class="muscle-freq-row">
-            <div style="display:flex; align-items:center; gap:8px; width:90px; flex-shrink:0;">
-              <div class="mf-dot" :style="{ background: muscleStyle(m.name).color }" />
-              <span style="font-size:12px; font-weight:600; color:var(--text-2);">{{ m.name }}</span>
-            </div>
-            <div style="flex:1; background:var(--border); border-radius:99px; height:6px; overflow:hidden;">
-              <div
-                style="height:100%; border-radius:99px; transition:width 0.4s;"
-                :style="{ width: (m.count / maxMuscleCount * 100) + '%', background: muscleStyle(m.name).color }"
-              />
-            </div>
-            <span style="font-size:12px; font-weight:700; color:var(--text-2); width:20px; text-align:right;">{{ m.count }}</span>
-          </div>
-        </div>
-
-        <!-- Day completion this week -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <span class="dash-card-title">Plan completion</span>
-            <span class="dash-card-sub">Days logged overall</span>
-          </div>
-          <div class="plan-completion-grid">
-            <div
-              v-for="n in 6"
-              :key="n"
-              class="pc-cell"
-              :class="{ done: dayLoggedCount(n) > 0 }"
-              :style="dayLoggedCount(n) > 0 ? { borderColor: plan[n].color, background: plan[n].color + '18' } : {}"
-            >
-              <div
-                class="pc-pill"
-                :style="{ background: plan[n].color }"
-              >Day {{ n }}</div>
-              <div class="pc-label">{{ plan[n].label.split('·')[0].trim() }}</div>
-              <div class="pc-count">{{ dayLoggedCount(n) }}×</div>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
 
-    <!-- ── Milestone badges ── -->
-    <div v-if="earnedBadges.length" style="margin-top:20px;">
+    <!-- ── Row 2: Muscle groups + Plan completion + Recent sessions ── -->
+    <div class="dashboard-grid-3" style="margin-bottom:16px;">
+
+      <!-- Muscle groups -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Muscle groups this week</span>
+        </div>
+        <div v-if="!muscleFreq.length" style="padding:16px; text-align:center; font-size:13px; color:var(--text-3);">
+          Log workouts to see muscle frequency.
+        </div>
+        <div v-for="m in muscleFreq" :key="m.name" class="muscle-freq-row">
+          <div style="display:flex; align-items:center; gap:8px; width:90px; flex-shrink:0;">
+            <div class="mf-dot" :style="{ background: muscleStyle(m.name).color }" />
+            <span style="font-size:12px; font-weight:600; color:var(--text-2);">{{ m.name }}</span>
+          </div>
+          <div style="flex:1; background:var(--border); border-radius:99px; height:6px; overflow:hidden;">
+            <div style="height:100%; border-radius:99px; transition:width 0.4s;" :style="{ width: (m.count / maxMuscleCount * 100) + '%', background: muscleStyle(m.name).color }" />
+          </div>
+          <span style="font-size:12px; font-weight:700; color:var(--text-2); width:20px; text-align:right;">{{ m.count }}</span>
+        </div>
+      </div>
+
+      <!-- Plan completion -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Plan completion</span>
+          <span class="dash-card-sub">Overall</span>
+        </div>
+        <div class="plan-completion-grid">
+          <div v-for="n in 6" :key="n" class="pc-cell" :class="{ done: dayLoggedCount(n) > 0 }" :style="dayLoggedCount(n) > 0 ? { borderColor: plan[n].color, background: plan[n].color + '18' } : {}">
+            <div class="pc-pill" :style="{ background: plan[n].color }">Day {{ n }}</div>
+            <div class="pc-label">{{ plan[n].label.split('·')[0].trim() }}</div>
+            <div class="pc-count">{{ dayLoggedCount(n) }}×</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent sessions -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Recent sessions</span>
+          <el-button size="small" text style="color:var(--primary); font-weight:600;" @click="$emit('go-history')">View all →</el-button>
+        </div>
+        <div v-if="!recentSessions.length" style="padding:20px; text-align:center; color:var(--text-3); font-size:13px;">No sessions yet.</div>
+        <div v-for="s in recentSessions" :key="s.id" class="recent-row" @click="$emit('edit-session', s)">
+          <div class="recent-dot" :style="{ background: dayColorFor(s) }" />
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:13px; font-weight:700; color:var(--text-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ s.dayLabel }}</div>
+            <div style="font-size:11px; color:var(--text-3); margin-top:1px;">{{ formatDate(s.date) }} · {{ s.exercises.length }} ex · {{ totalSetsOf(s) }} sets</div>
+          </div>
+          <el-tag v-if="s.dayNumber" size="small" effect="plain" :style="{ color: dayColorFor(s), borderColor: dayColorFor(s), background: dayColorFor(s)+'18' }">Day {{ s.dayNumber }}</el-tag>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Milestone badges (full width) ── -->
+    <div v-if="earnedBadges.length" style="margin-bottom:8px;">
       <div class="section-title">Achievements</div>
       <div class="badges-grid">
         <div
@@ -607,15 +533,30 @@ const earnedBadges = computed(() => {
   border-radius: 20px; padding: 2px 8px;
 }
 
-/* Dashboard 2-col grid */
+/* Dashboard grids */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 20px;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
 .dash-col { display: flex; flex-direction: column; gap: 16px; }
+
+@media (max-width: 1100px) {
+  .dashboard-grid-3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  .dashboard-grid,
+  .dashboard-grid-3 { grid-template-columns: 1fr !important; }
+}
 
 /* Dash card */
 .dash-card {
