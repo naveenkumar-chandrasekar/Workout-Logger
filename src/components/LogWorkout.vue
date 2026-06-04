@@ -146,7 +146,8 @@
               v-for="(ex, exIdx) in session.exercises"
               :key="ex.id"
               class="exercise-row-wrap"
-              v-bind="logDrag.handlers(exIdx)"
+              data-drag-row
+              v-bind="logDrag.rowHandlers(exIdx)"
               :class="{
                 'drag-item':     logDrag.dragIdx.value === exIdx,
                 'drag-over-top': logDrag.overIdx.value === exIdx && logDrag.dragIdx.value !== null && logDrag.dragIdx.value > exIdx,
@@ -155,7 +156,7 @@
             >
               <!-- Exercise name row -->
               <div class="ex-title-row" @click="toggleExpand(ex.id)">
-                <span class="drag-handle" @click.stop title="Drag to reorder">⠿</span>
+                <span class="drag-handle" v-bind="logDrag.handleHandlers(exIdx)" @click.stop title="Drag to reorder">⠿</span>
                 <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
                   <span class="chevron" :class="{ open: expanded.has(ex.id) }">▶</span>
                   <span style="font-size:14px; font-weight:700; color:var(--text-1);">{{ ex.name }}</span>

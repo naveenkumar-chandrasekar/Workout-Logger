@@ -94,7 +94,8 @@
         <div
           v-for="(ex, idx) in editDayData.exercises"
           :key="idx"
-          v-bind="planDrag.handlers(idx)"
+          data-drag-row
+          v-bind="planDrag.rowHandlers(idx)"
           :class="{
             'plan-drag-item':     planDrag.dragIdx.value === idx,
             'plan-drag-over-top': planDrag.overIdx.value === idx && planDrag.dragIdx.value !== null && planDrag.dragIdx.value > idx,
@@ -104,7 +105,7 @@
         >
           <!-- Row 1: drag handle + number + name + delete -->
           <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <span class="plan-drag-handle" title="Drag to reorder">⠿</span>
+            <span class="plan-drag-handle" v-bind="planDrag.handleHandlers(idx)" title="Drag to reorder">⠿</span>
             <div style="width:22px; height:22px; border-radius:6px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--primary); flex-shrink:0;">
               {{ idx + 1 }}
             </div>

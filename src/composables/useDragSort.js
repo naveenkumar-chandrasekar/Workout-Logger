@@ -115,19 +115,31 @@ export function useDragSort(getList, setList) {
     return null;
   }
 
-  // ── Convenience: returns all event bindings for one item ─────────────────
-  function handlers(idx, elRef) {
+  /**
+   * rowHandlers(idx) — attach to the whole draggable row.
+   * Only mouse/pointer drag events — NO touch events here so mobile scroll works.
+   */
+  function rowHandlers(idx) {
     return {
-      draggable: true,
+      draggable:   true,
       onDragstart: (e) => onDragStart(e, idx),
       onDragover:  (e) => onDragOver(e, idx),
       onDrop:      (e) => onDrop(e, idx),
       onDragend:   (e) => onDragEnd(e),
-      onTouchstart:(e) => onTouchStart(e, idx, elRef?.value ?? e.currentTarget),
-      onTouchmove: (e) => onTouchMove(e, idx),
-      onTouchend:  ()  => onTouchEnd(),
     };
   }
 
-  return { dragIdx, overIdx, handlers };
+  /**
+   * handleHandlers(idx) — attach ONLY to the ⠿ drag handle icon.
+   * Touch events live here so scrolling the rest of the row is unblocked.
+   */
+  function handleHandlers(idx) {
+    return {
+      onTouchstart: (e) => onTouchStart(e, idx, e.currentTarget.closest('[data-drag-row]') ?? e.currentTarget),
+      onTouchmove:  (e) => onTouchMove(e, idx),
+      onTouchend:   ()  => onTouchEnd(),
+    };
+  }
+
+  return { dragIdx, overIdx, rowHandlers, handleHandlers };
 }
