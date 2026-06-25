@@ -440,9 +440,39 @@ function loadSession(id)    { const f = props.sessions.find(s => s.id === id); i
 function selectDay(n)       { selectedDay.value = n; }
 
 function startSession() {
-  session.value = selectedDay.value === 'custom'
-    ? newCustomSession(selectedDate.value, customLabel.value)
-    : sessionFromPlan(selectedDay.value, props.plan, selectedDate.value);
+  if (selectedDay.value === 'custom') {
+    session.value = newCustomSession(selectedDate.value, customLabel.value);
+  } else {
+    const newSess = sessionFromPlan(selectedDay.value, props.plan, selectedDate.value);
+
+    // Pre-fill reps + weight per exercise from its most recent appearance across ALL sessions
+    const sortedSessions = [...props.sessions].sort((a, b) => b.date.localeCompare(a.date));
+    let anyPrefilled = false;
+
+    newSess.exercises = newSess.exercises.map(ex => {
+      // Find the most recent session that contains this exercise by name
+      for (const s of sortedSessions) {
+        const prevEx = s.exercises.find(pe => pe.name === ex.name);
+        if (prevEx?.sets?.length) {
+          anyPrefilled = true;
+          return {
+            ...ex,
+            sets: ex.sets.map((set, i) => {
+              const src = prevEx.sets[i] ?? prevEx.sets[prevEx.sets.length - 1];
+              return { ...set, reps: src.reps ?? '', weight: src.weight ?? '' };
+            }),
+          };
+        }
+      }
+      return ex;
+    });
+
+    if (anyPrefilled) {
+      ElMessage({ message: 'Sets pre-filled from last time each exercise was logged', type: 'info', duration: 2500 });
+    }
+
+    session.value = newSess;
+  }
   expandAll();
   emit('session-changed', true);
 }
