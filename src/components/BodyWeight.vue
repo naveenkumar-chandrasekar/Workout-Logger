@@ -74,7 +74,9 @@
             <div v-if="chartData.length < 2" style="height:200px; display:flex; align-items:center; justify-content:center; color:var(--text-3); font-size:13px;">
               Log at least 2 entries to see the trend chart.
             </div>
-            <canvas v-else ref="chartCanvas" style="width:100%; height:220px;" />
+            <div v-else style="position:relative; height:220px; width:100%;">
+              <canvas ref="chartCanvas" />
+            </div>
           </div>
         </div>
 

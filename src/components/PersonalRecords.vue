@@ -156,6 +156,7 @@
       direction="rtl"
       size="480px"
       :destroy-on-close="true"
+      append-to-body
     >
       <template #header>
         <div style="display:flex; align-items:center; gap:10px;">
@@ -196,7 +197,9 @@
             <span class="detail-card-sub">max weight per session</span>
           </div>
           <div style="padding:16px;">
-            <canvas v-if="selectedPR.history.length >= 2" ref="detailChartCanvas" style="width:100%; height:200px;" />
+            <div v-if="selectedPR.history.length >= 2" style="position:relative; height:200px; width:100%;">
+              <canvas ref="detailChartCanvas" />
+            </div>
             <div v-else style="height:80px; display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--text-3);">
               Need at least 2 sessions to show trend
             </div>
