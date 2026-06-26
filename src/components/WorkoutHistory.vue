@@ -333,16 +333,16 @@ function toggleExpand(id) {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 18px 28px;
+  padding: 20px 28px;
   margin-bottom: 24px;
   box-shadow: var(--shadow-sm);
   gap: 0;
 }
 
 .stat-card { flex: 1; text-align: center; }
-.stat-card-val { font-size: 26px; font-weight: 800; color: var(--text-1); letter-spacing: -0.5px; }
-.stat-card-key { font-size: 12px; color: var(--text-3); font-weight: 500; margin-top: 3px; }
-.stat-divider  { width: 1px; height: 40px; background: var(--border); flex-shrink: 0; margin: 0 4px; }
+.stat-card-val { font-size: 30px; font-weight: 800; color: var(--text-1); letter-spacing: -0.8px; line-height: 1; }
+.stat-card-key { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 5px; }
+.stat-divider  { width: 1px; height: 44px; background: var(--border); flex-shrink: 0; margin: 0 4px; }
 
 /* Table */
 .history-table-wrap {
@@ -375,15 +375,15 @@ function toggleExpand(id) {
   color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 1px;
-  background: #f9fafd;
+  background: var(--surface);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
 
 .session-tr { cursor: pointer; transition: background 0.1s; }
 .session-tr td { padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.session-tr:hover td { background: #fafbff; }
-.session-tr.expanded td { background: #f5f7ff; }
+.session-tr:hover td { background: var(--surface); }
+.session-tr.expanded td { background: var(--surface); }
 
 .color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
@@ -392,7 +392,7 @@ function toggleExpand(id) {
 
 .detail-panel {
   padding: 16px 20px;
-  background: #f8f9fe;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 

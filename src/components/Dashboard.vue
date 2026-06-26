@@ -65,7 +65,7 @@
     <div class="dashboard-grid" style="margin-bottom:16px;">
 
       <!-- Today's workout -->
-      <div class="dash-card today-card" :style="{ borderLeftColor: todayPlan?.color || '#6c5ce7' }">
+      <div class="dash-card today-card" :style="{ borderLeftColor: todayPlan?.color || '#2563eb' }">
         <div class="dash-card-header">
           <div>
             <span class="dash-card-title">Today's workout</span>
@@ -129,7 +129,7 @@
               <span style="font-size:12px; font-weight:700; color:var(--primary);">{{ thisWeekSessions }}/6 days</span>
             </div>
             <div style="background:var(--border); border-radius:99px; height:6px; overflow:hidden;">
-              <div style="height:100%; border-radius:99px; background:linear-gradient(90deg,#6c5ce7,#a29bfe); transition:width 0.4s;" :style="{ width: Math.min(100,(thisWeekSessions/6)*100) + '%' }" />
+              <div style="height:100%; border-radius:99px; background:linear-gradient(90deg,#2563eb,#93c5fd); transition:width 0.4s;" :style="{ width: Math.min(100,(thisWeekSessions/6)*100) + '%' }" />
             </div>
           </div>
         </div>
@@ -364,7 +364,7 @@ const last30Days = computed(() => {
 const last30Trained = computed(() => last30Days.value.filter(d => d.count > 0).length);
 
 function heatColor(count) {
-  const colors = ['#e8eaf0', '#c5b8fb', '#9b8df7', '#6c5ce7'];
+  const colors = ['#e2e8f0', '#bfdbfe', '#60a5fa', '#2563eb'];
   return colors[Math.min(count, 3)];
 }
 
@@ -487,78 +487,101 @@ const earnedBadges = computed(() => {
 </script>
 
 <style scoped>
-/* Greeting */
+/* ── Greeting ── */
 .greeting-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   gap: 16px;
+  flex-wrap: wrap;
 }
-.greeting-text { font-size: 22px; font-weight: 800; color: var(--text-1); letter-spacing: -0.4px; }
-.greeting-date { font-size: 13px; color: var(--text-3); margin-top: 3px; }
+.greeting-text {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+}
+.greeting-date { font-size: 14px; color: var(--text-3); margin-top: 5px; }
 
-/* Stat row */
+/* ── Stat row ── */
 .stat-row {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 14px;
+  margin-bottom: 32px;
 }
 
 .stat-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 20px 20px 18px;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
+  transition: box-shadow 0.15s, transform 0.15s;
 }
 
-.stat-card.streak-active { border-color: #fbbf24; background: #fffbeb; }
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.stat-card.streak-active { border-left: 3px solid #f59e0b; }
 
-.stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-.stat-val  { font-size: 26px; font-weight: 800; color: var(--text-1); letter-spacing: -0.5px; line-height: 1; }
-.stat-key  { font-size: 11px; color: var(--text-3); font-weight: 600; margin-top: 3px; }
+.stat-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0; margin-bottom: 12px;
+}
+.stat-body { display: flex; flex-direction: column; }
+.stat-val  {
+  font-size: 38px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+.stat-key  { font-size: 12px; color: var(--text-3); font-weight: 600; margin-top: 6px; }
 
 .streak-badge {
   position: absolute;
-  top: 10px; right: 10px;
+  top: 12px; right: 12px;
   font-size: 10px; font-weight: 700;
-  background: #fbbf24; color: #78350f;
+  background: #fcd34d; color: #78350f;
   border-radius: 20px; padding: 2px 8px;
 }
 
-/* Dashboard grids */
+/* ── Dashboard grids ── */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 18px;
   align-items: start;
+  margin-bottom: 18px;
 }
 
 .dashboard-grid-3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 18px;
   align-items: start;
+  margin-bottom: 18px;
 }
 
-.dash-col { display: flex; flex-direction: column; gap: 16px; }
+.dash-col { display: flex; flex-direction: column; gap: 18px; }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .dashboard-grid-3 { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 768px) {
+  .stat-row            { grid-template-columns: repeat(3, 1fr) !important; }
   .dashboard-grid,
-  .dashboard-grid-3 { grid-template-columns: 1fr !important; }
+  .dashboard-grid-3   { grid-template-columns: 1fr !important; }
 }
 
-/* Dash card */
+/* ── Dash card ── */
 .dash-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -571,15 +594,14 @@ const earnedBadges = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .dash-card-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
 .dash-card-sub   { font-size: 12px; color: var(--text-3); }
 
-/* Week grid */
+/* ── Week grid ── */
 .week-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -594,117 +616,121 @@ const earnedBadges = computed(() => {
   gap: 4px;
   padding: 8px 4px;
   border-radius: 10px;
-  transition: background 0.1s;
+  transition: background 0.12s;
 }
 
-.week-day.today { background: var(--primary-light); }
-.week-day.future { opacity: 0.4; }
+.week-day.today { background: var(--primary-light); border-radius: 10px; }
+.week-day.future { opacity: 0.35; }
 
-.week-day-name { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; }
+.week-day-name {
+  font-size: 10px; font-weight: 700;
+  color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px;
+}
 .week-day.today .week-day-name { color: var(--primary); }
 
 .week-day-num {
-  width: 28px; height: 28px;
+  width: 30px; height: 30px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 700; color: var(--text-2);
 }
 
-.week-day.today .week-day-num { background: var(--primary); color: #fff; }
-.week-day.has-session .week-day-num { color: var(--text-1); }
+.week-day.today .week-day-num  { background: var(--primary); color: #fff; }
+.week-day.has-session .week-day-num { font-weight: 800; color: var(--text-1); }
 
-.week-day-dots { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; min-height: 10px; margin-top: 2px; }
+.week-day-dots {
+  display: flex; gap: 3px; flex-wrap: wrap;
+  justify-content: center; min-height: 10px; margin-top: 2px;
+}
 
-.week-dot { width: 8px; height: 8px; border-radius: 50%; }
+.week-dot  { width: 7px; height: 7px; border-radius: 50%; }
 .week-rest { font-size: 10px; color: var(--border); }
 
-/* Heatmap */
+/* ── Heatmap ── */
 .heatmap {
   display: grid;
-  grid-template-columns: repeat(15, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
   padding: 16px;
 }
 
 .heat-cell {
   aspect-ratio: 1;
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
-  transition: transform 0.1s;
   cursor: default;
 }
 
 .heat-cell.active { border-color: transparent; }
-.heat-cell.today  { ring: 2px solid var(--primary); outline: 2px solid var(--primary); outline-offset: 1px; }
+.heat-cell.today  { outline: 2px solid var(--primary); outline-offset: 1px; }
+.heat-legend { width: 14px; height: 14px; border-radius: 4px; }
 
-.heat-legend { width: 14px; height: 14px; border-radius: 3px; }
-
-/* Recent sessions */
+/* ── Recent sessions ── */
 .recent-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 18px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.1s;
 }
 .recent-row:last-child { border-bottom: none; }
-.recent-row:hover { background: #fafbff; }
+.recent-row:hover { background: var(--surface); }
 .recent-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-/* Today card */
+/* ── Today card ── */
 .today-card { border-left: 4px solid var(--primary); }
 
 .today-pill {
   font-size: 10px; font-weight: 800; color: #fff;
   border-radius: 20px; padding: 3px 12px;
-  text-transform: uppercase; letter-spacing: 0.4px;
+  text-transform: uppercase; letter-spacing: 0.5px;
   flex-shrink: 0;
 }
 
-.today-exercises { margin: 0 -18px; }
+.today-exercises { margin: 0 -20px; }
 
 .today-ex-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 18px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   gap: 12px;
   transition: background 0.1s;
 }
 .today-ex-row:last-child { border-bottom: none; }
-.today-ex-row:hover { background: #fafbff; }
+.today-ex-row:hover { background: var(--surface); }
 
 .today-muscle-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
 .today-tip {
-  margin: 10px 18px 14px;
-  font-size: 12px; color: #92400e; line-height: 1.5;
+  margin: 12px 20px 16px;
+  font-size: 12px; color: #92400e; line-height: 1.6;
   background: #fffbeb; border: 1px solid #fde68a;
-  border-radius: 8px; padding: 8px 12px;
+  border-radius: 8px; padding: 9px 13px;
 }
 
 .muscle-tag {
   font-size: 11px; font-weight: 700;
-  padding: 2px 8px; border-radius: 20px; border: 1px solid;
+  padding: 2px 9px; border-radius: 20px; border: 1px solid;
   white-space: nowrap;
 }
 
-/* Muscle frequency */
+/* ── Muscle frequency ── */
 .muscle-freq-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 18px;
+  padding: 9px 20px;
   border-bottom: 1px solid var(--border);
 }
 .muscle-freq-row:last-child { border-bottom: none; }
 .mf-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-/* Plan completion */
+/* ── Plan completion ── */
 .plan-completion-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -715,36 +741,39 @@ const earnedBadges = computed(() => {
 .pc-cell {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px 12px;
+  padding: 12px;
   transition: all 0.15s;
+  background: var(--surface);
 }
+
+.pc-cell.done { background: var(--card); }
 
 .pc-pill {
   font-size: 10px; font-weight: 800; color: #fff;
   border-radius: 20px; padding: 2px 8px;
   display: inline-block; text-transform: uppercase;
-  letter-spacing: 0.4px; margin-bottom: 5px;
+  letter-spacing: 0.4px; margin-bottom: 6px;
 }
 
 .pc-label { font-size: 11px; font-weight: 600; color: var(--text-2); line-height: 1.3; }
-.pc-count { font-size: 18px; font-weight: 800; color: var(--text-1); margin-top: 4px; }
+.pc-count { font-size: 22px; font-weight: 800; color: var(--text-1); margin-top: 5px; letter-spacing: -0.5px; }
 
-/* Today's card body padding */
-.dash-card > div:not(.dash-card-header) { padding: 16px 18px; }
-.today-exercises { padding: 0 !important; margin: 0; }
+/* dash-card body padding override */
+.dash-card > div:not(.dash-card-header) { padding: 18px 20px; }
+.today-exercises { padding: 0 !important; margin: 0 -20px; }
 
 /* ── Badges ── */
 .badges-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
 }
 
 .badge-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 14px 12px;
+  padding: 18px 14px 14px;
   text-align: center;
   box-shadow: var(--shadow-sm);
   position: relative;
@@ -752,25 +781,18 @@ const earnedBadges = computed(() => {
 }
 
 .badge-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.badge-card.badge-new { border-color: #fcd34d; }
 
-.badge-card.badge-new {
-  border-color: #fbbf24;
-  background: linear-gradient(135deg, #fffbeb, #fff);
-}
-
-.badge-icon { font-size: 32px; margin-bottom: 6px; line-height: 1; }
-.badge-name { font-size: 12px; font-weight: 700; color: var(--text-1); margin-bottom: 3px; }
-.badge-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+.badge-icon { font-size: 34px; margin-bottom: 8px; line-height: 1; }
+.badge-name { font-size: 13px; font-weight: 700; color: var(--text-1); margin-bottom: 4px; }
+.badge-desc { font-size: 11px; color: var(--text-3); line-height: 1.5; }
 
 .badge-new-tag {
   position: absolute;
-  top: -6px; right: -6px;
-  background: #f59e0b;
-  color: #78350f;
-  font-size: 9px;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 20px;
+  top: -7px; right: -7px;
+  background: #f59e0b; color: #78350f;
+  font-size: 9px; font-weight: 800;
+  padding: 2px 7px; border-radius: 20px;
   letter-spacing: 0.3px;
 }
 </style>

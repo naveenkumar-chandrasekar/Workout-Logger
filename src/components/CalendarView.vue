@@ -316,7 +316,7 @@ function onDayClick(cell) {
 .cal-cell:nth-child(7n)   { border-right: none; }
 .cal-cell:nth-last-child(-n+7) { border-bottom: none; }
 
-.cal-cell.cal-other-month { background: #fafbff; opacity: 0.5; }
+.cal-cell.cal-other-month { background: var(--surface); opacity: 0.5; }
 .cal-cell.cal-has-session { cursor: pointer; }
 .cal-cell.cal-has-session:hover { background: var(--surface); }
 .cal-cell.cal-today       { background: var(--primary-light); }
@@ -385,9 +385,8 @@ function onDayClick(cell) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .cal-session-card {

@@ -216,13 +216,16 @@ function saveDay() {
 <style scoped>
 /* ── Plan block ── */
 .plan-block {
-  background: #fff;
+  background: var(--card);
   border-radius: var(--radius-lg);
   margin-bottom: 14px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
+  transition: box-shadow 0.18s;
 }
+
+.plan-block:hover { box-shadow: var(--shadow-md); }
 
 /* ── Day label row ── */
 .plan-day-row {
@@ -276,10 +279,10 @@ function saveDay() {
 }
 
 .plan-ex-item:last-of-type { border-bottom: none; }
-.plan-ex-item:hover { background: #fafbff; }
+.plan-ex-item:hover { background: var(--surface); }
 
 .plan-ex-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-1);
   flex: 1;

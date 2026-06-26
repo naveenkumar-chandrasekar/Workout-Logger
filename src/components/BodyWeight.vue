@@ -221,7 +221,7 @@
               </div>
               <div style="background:var(--border); border-radius:99px; height:8px; overflow:hidden; position:relative;">
                 <div
-                  style="height:100%; border-radius:99px; transition:width 0.4s; background:#6c5ce7;"
+                  style="height:100%; border-radius:99px; transition:width 0.4s; background:#2563eb;"
                   :style="{ width: goalProgress + '%' }"
                 />
               </div>
@@ -383,10 +383,10 @@ async function renderChart() {
         {
           label: 'Weight (kg)',
           data,
-          borderColor: '#6c5ce7',
-          backgroundColor: 'rgba(108,92,231,0.08)',
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37,99,235,0.08)',
           borderWidth: 2.5,
-          pointBackgroundColor: '#6c5ce7',
+          pointBackgroundColor: '#2563eb',
           pointRadius: data.length > 30 ? 0 : 4,
           pointHoverRadius: 6,
           tension: 0.35,
@@ -448,7 +448,7 @@ onMounted(() => { if (chartData.value.length >= 2) renderChart(); });
 
 .bw-stat { flex: 1; text-align: center; }
 .bw-stat-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 6px; }
-.bw-stat-val   { font-size: 24px; font-weight: 800; color: var(--text-1); letter-spacing: -0.4px; }
+.bw-stat-val   { font-size: 26px; font-weight: 800; color: var(--text-1); letter-spacing: -0.6px; line-height: 1; }
 .bw-stat-sub   { font-size: 11px; color: var(--text-3); margin-top: 3px; }
 .bw-stat-divider { width: 1px; height: 44px; background: var(--border); flex-shrink: 0; margin: 0 4px; }
 
@@ -475,9 +475,8 @@ onMounted(() => { if (chartData.value.length >= 2) renderChart(); });
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
   gap: 12px;
 }
 
@@ -489,10 +488,10 @@ onMounted(() => { if (chartData.value.length >= 2) renderChart(); });
 .bw-table { width: 100%; border-collapse: collapse; }
 
 .bw-table thead th {
-  padding: 10px 16px;
+  padding: 11px 16px;
   font-size: 11px; font-weight: 700; color: var(--text-3);
   text-transform: uppercase; letter-spacing: 0.6px;
-  background: var(--surface);
+  background: var(--card);
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
@@ -504,7 +503,7 @@ onMounted(() => { if (chartData.value.length >= 2) renderChart(); });
 }
 
 .bw-table-row:last-child td { border-bottom: none; }
-.bw-table-row:hover td { background: #fafbff; }
+.bw-table-row:hover td { background: var(--surface); }
 
 .bw-delta {
   font-size: 12px; font-weight: 700;

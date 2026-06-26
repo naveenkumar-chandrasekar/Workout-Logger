@@ -128,6 +128,7 @@
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <div class="session-stat-chip">💪 {{ session.exercises.length }} exercises</div>
               <div class="session-stat-chip">📊 {{ totalSetsCompleted }}/{{ totalSets }} sets</div>
+              <div v-if="sessionSaved" class="session-saved-chip">✓ Saved</div>
               <button class="save-tpl-btn" @click="saveAsTemplate">📄 Save as Template</button>
             </div>
           </div>
@@ -273,8 +274,14 @@
             />
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
               <el-button v-if="editMode" @click="$emit('cancel')" style="min-width:100px; height:40px; border-radius:10px;">Cancel</el-button>
-              <el-button type="primary" :loading="saving" @click="saveSession" style="min-width:160px; height:40px; font-weight:700; border-radius:10px;">
-                {{ editMode ? '✓ Update Session' : '✓ Save Workout' }}
+              <el-button v-if="sessionSaved && !editMode" @click="newSession" style="min-width:140px; height:40px; border-radius:10px; font-weight:700;">
+                + New Session
+              </el-button>
+              <el-button type="primary" :loading="saving" @click="saveSession"
+                style="min-width:160px; height:40px; font-weight:700; border-radius:10px;"
+                :plain="sessionSaved && !editMode"
+              >
+                {{ editMode ? '✓ Update Session' : sessionSaved ? '↻ Re-save' : '✓ Save Workout' }}
               </el-button>
             </div>
           </div>
@@ -365,6 +372,7 @@ const customLabel     = ref('');
 const loadSessionId   = ref(null);
 const session         = ref(props.editSession ? deepClone(props.editSession) : null);
 const editMode        = computed(() => !!props.editSession);
+const sessionSaved    = ref(false);
 const saving          = ref(false);
 const expanded        = ref(new Set());
 const showAddExDialog = ref(false);
@@ -395,7 +403,7 @@ function getPRType(exerciseName, weight, reps) {
 }
 
 const heroColor = computed(() => {
-  if (session.value?.dayNumber) return props.plan[session.value.dayNumber]?.color || '#6c5ce7';
+  if (session.value?.dayNumber) return props.plan[session.value.dayNumber]?.color || '#2563eb';
   return '#fd79a8';
 });
 
@@ -436,10 +444,11 @@ function completedSets(ex)  { return ex.sets.filter(s => isSetDone(s)).length; }
 function isSetDone(set)     { return String(set.reps).trim() !== '' && String(set.reps).trim() !== '0'; }
 
 function onDateChange()     { loadSessionId.value = null; }
-function loadSession(id)    { const f = props.sessions.find(s => s.id === id); if (f) { session.value = deepClone(f); expandAll(); } }
+function loadSession(id)    { const f = props.sessions.find(s => s.id === id); if (f) { session.value = deepClone(f); sessionSaved.value = false; expandAll(); } }
 function selectDay(n)       { selectedDay.value = n; }
 
 function startSession() {
+  sessionSaved.value = false;
   if (selectedDay.value === 'custom') {
     session.value = newCustomSession(selectedDate.value, customLabel.value);
   } else {
@@ -527,11 +536,18 @@ async function saveSession() {
     emit('save', deepClone(session.value));
     ElMessage({ message: 'Workout saved!', type: 'success', duration: 2000 });
     if (!editMode.value) {
-      session.value = null;
-      selectedDay.value = null;
+      sessionSaved.value = true;
       emit('session-changed', false);
+      // session stays visible so user can review what was saved
     }
   } finally { saving.value = false; }
+}
+
+function newSession() {
+  session.value     = null;
+  selectedDay.value = null;
+  sessionSaved.value = false;
+  emit('session-changed', false);
 }
 
 watch(() => props.editSession, v => {
@@ -714,7 +730,7 @@ watch(() => props.preloadedTemplate, tpl => {
   gap: 12px;
 }
 
-.ex-title-row:hover { background: #fafbff; }
+.ex-title-row:hover { background: var(--surface); }
 
 .chevron { font-size: 10px; color: var(--text-3); transition: transform 0.2s; }
 .chevron.open { transform: rotate(90deg); }
@@ -728,7 +744,7 @@ watch(() => props.preloadedTemplate, tpl => {
 .progress-badge.all-done { color: var(--success); background: #d1fae5; }
 
 /* Sets table */
-.sets-table-wrap { padding: 4px 18px 14px; background: #fafbff; }
+.sets-table-wrap { padding: 4px 18px 14px; background: var(--surface); }
 
 .sets-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
@@ -741,7 +757,7 @@ watch(() => props.preloadedTemplate, tpl => {
 }
 
 .set-tr td { padding: 4px 6px; vertical-align: middle; }
-.set-tr:hover td { background: rgba(108,92,231,0.03); }
+.set-tr:hover td { background: rgba(37,99,235,0.04); }
 
 .set-num {
   width: 26px; height: 26px; border-radius: 50%;
@@ -767,7 +783,7 @@ watch(() => props.preloadedTemplate, tpl => {
 }
 
 .cardio-grid-item:last-child { border-bottom: none; }
-.cardio-grid-item:hover { background: #fafbff; }
+.cardio-grid-item:hover { background: var(--surface); }
 
 .cardio-icon {
   width: 36px; height: 36px; border-radius: 10px;
@@ -781,7 +797,7 @@ watch(() => props.preloadedTemplate, tpl => {
 
 /* Clickable table row */
 :deep(.clickable-row) { cursor: pointer; }
-:deep(.clickable-row:hover td) { background: #f0f4ff !important; }
+:deep(.clickable-row:hover td) { background: var(--surface) !important; }
 
 /* PR live badge */
 .pr-set-row td { background: #fffbeb !important; }
@@ -793,6 +809,16 @@ watch(() => props.preloadedTemplate, tpl => {
   border-radius: 6px; padding: 2px 8px;
   white-space: nowrap;
   animation: pr-pulse 0.6s ease;
+}
+
+.session-saved-chip {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(16, 185, 129, 0.35);
+  border: 1px solid rgba(16, 185, 129, 0.6);
+  border-radius: 8px;
+  padding: 4px 12px;
 }
 
 .save-tpl-btn {

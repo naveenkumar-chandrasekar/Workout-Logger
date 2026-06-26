@@ -197,7 +197,7 @@
       <div class="mobile-menu-overlay" @click="mobileMenuOpen = false" />
       <div class="mobile-menu-panel">
         <div style="padding:0 16px 16px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:8px;">
-          <div style="font-size:17px; font-weight:800; color:#fff;">🏋️ Workout Logger</div>
+          <div style="font-size:17px; font-weight:800; color:#fff; padding-top:4px;">🏋️ Workout Logger</div>
           <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:2px;">6-day split · {{ weightGoal }} kg</div>
         </div>
         <nav style="padding:0 8px; flex:1;">

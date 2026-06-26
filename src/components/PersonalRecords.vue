@@ -121,7 +121,7 @@
             <polyline
               :points="sparkPoints(pr.history)"
               fill="none"
-              stroke="#6c5ce7"
+              stroke="#2563eb"
               stroke-width="1.8"
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -132,7 +132,7 @@
               :cx="sparkX(pr.history.length - 1, pr.history.length)"
               :cy="sparkY(pr.history[pr.history.length-1].maxWeight, pr.history)"
               r="3"
-              fill="#6c5ce7"
+              fill="#2563eb"
             />
           </svg>
         </div>
@@ -385,10 +385,10 @@ async function renderDetailChart() {
         {
           label: 'Max weight (kg)',
           data: history.map(h => h.maxWeight),
-          borderColor: '#6c5ce7',
-          backgroundColor: 'rgba(108,92,231,0.07)',
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37,99,235,0.07)',
           borderWidth: 2.5,
-          pointBackgroundColor: history.map(h => isPREntry(selectedPR.value, h) ? '#f59e0b' : '#6c5ce7'),
+          pointBackgroundColor: history.map(h => isPREntry(selectedPR.value, h) ? '#f59e0b' : '#2563eb'),
           pointRadius: history.map(h => isPREntry(selectedPR.value, h) ? 7 : 4),
           tension: 0.3,
           fill: true,
@@ -486,7 +486,7 @@ watch([drawerOpen, selectedPR], ([open]) => {
 .pr-card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
-  border-color: #c5b8fb;
+  border-color: var(--primary);
 }
 
 .pr-card-header {

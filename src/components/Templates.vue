@@ -306,7 +306,7 @@ function loadTemplate(tpl) {
   gap: 10px;
 }
 
-.tpl-name { font-size: 15px; font-weight: 800; color: var(--text-1); line-height: 1.3; }
+.tpl-name { font-size: 16px; font-weight: 800; color: var(--text-1); line-height: 1.3; }
 
 .tpl-stats-row {
   display: flex;
@@ -334,7 +334,7 @@ function loadTemplate(tpl) {
 }
 
 .tpl-ex-row:last-child { border-bottom: none; }
-.tpl-ex-row:hover { background: #fafbff; }
+.tpl-ex-row:hover { background: var(--surface); }
 
 .tpl-ex-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .tpl-ex-name { font-size: 12.5px; font-weight: 600; color: var(--text-1); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
