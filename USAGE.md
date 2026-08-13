@@ -26,26 +26,39 @@ You need a Google Client ID so the app can read/write files in your Drive.
    - `http://localhost:5173` (for local development)
 7. Copy the **Client ID**
 
-### 3. Add the Client ID to Vercel
+### 3. Get a Groq API Key (for the Food Log)
+
+The Food Log sends your meal description to Groq to estimate calories. Skip this if you don't want that feature — everything else works without it.
+
+1. Go to [console.groq.com/keys](https://console.groq.com/keys)
+2. **Create API Key** → copy it (starts with `gsk_`)
+
+### 4. Add both keys to Vercel
 
 1. Go to your Vercel project → **Settings → Environment Variables**
 2. Add:
    ```
    Name:  VITE_GOOGLE_CLIENT_ID
    Value: your-client-id.apps.googleusercontent.com
+
+   Name:  GROQ_API_KEY
+   Value: gsk_your_key_here
    ```
 3. Redeploy
 
-### 4. First Sign-In
+The Groq key deliberately has **no** `VITE_` prefix — only `VITE_*` variables get bundled into the browser, so this one stays server-side in the `/api/analyze-food` function.
+
+### 5. First Sign-In
 
 1. Open your Vercel URL
 2. Click **Sign in with Google**
 3. Grant Drive access — you'll see a warning ("app not verified") since it's your own personal app — click **Continue**
-4. The app creates 4 Excel files in your Google Drive automatically:
+4. The app creates 5 Excel files in your Google Drive automatically:
    - `workout_plan.xlsx` — your 6-day plan
    - `workout_log.xlsx` — all your sessions
    - `body_weight.xlsx` — weight entries
    - `workout_templates.xlsx` — saved templates
+   - `food_log.xlsx` — food entries + nutrition breakdown
 
 ---
 
@@ -72,6 +85,24 @@ You need a Google Client ID so the app can read/write files in your Drive.
 3. Add or remove exercises, change sets/reps, rename, reorder
 4. Hit **Save Changes** — updates `workout_plan.xlsx` in Drive
 
+### Tracking Calories
+
+1. Go to **Food Log** — it opens on today
+2. Type what you ate however you'd say it out loud: *"2 chapati with dal, a cup of curd and 2 boiled eggs"*
+3. Click **Analyze calories** (or press ⌘/Ctrl + Enter)
+4. Groq splits it into individual items and estimates kcal, protein, carbs and fat for each. Click the entry to see the breakdown and the assumptions it made about serving sizes
+5. **Got it wrong?** Click ✎, edit the description (e.g. add "3 chapati, not 2"), then **↻ Recompute** — the same entry is re-analyzed and overwritten
+6. Click ✕ to delete an entry
+
+**Reading the deficit:**
+
+- **Allowance** = your daily target + calories burned training that day
+- **Deficit** (green) means you ate under it; **Surplus** (red) means over
+- Training burn is estimated from your logged sets and cardio at your latest body weight — resistance work is costed at 3 minutes per completed set since sessions aren't timed
+- Set your daily target in the right-hand panel; it's saved to `food_log.xlsx`
+
+The bar strip under the totals shows the last 7 days — click any bar to jump to that day. Use the arrows or the date picker in the header to log a meal for a past day.
+
 ### Tracking Body Weight
 
 1. Go to **Body Weight**
@@ -91,7 +122,7 @@ Go to **Personal Records** — the app automatically finds your best weight and 
 
 ### Exporting Data
 
-- **History page:** click **Export Excel** to download a formatted spreadsheet with all sessions, sets, cardio, and body weight on separate sheets
+- **History page:** click **Export Excel** to download a formatted spreadsheet with all sessions, sets, cardio, body weight, and food on separate sheets
 - **Sidebar → Settings → Export Excel** for a quick full export
 
 ---
@@ -113,9 +144,11 @@ git clone https://github.com/your-username/Workout-Logger.git
 cd Workout-Logger
 npm install
 
-# Create .env.local and add your Client ID
-echo "VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com" > .env.local
+# Create .env.local and fill in both keys
+cp .env.example .env.local
 
 npm run dev
 # Open http://localhost:5173
 ```
+
+The dev server also serves `/api/analyze-food` using the same handler Vercel runs in production, so the Food Log works locally — no `vercel dev` needed.

@@ -220,6 +220,99 @@ export function buildBodyWeightXlsx(weights, goal = 74) {
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
 }
 
+// ─── Food log ──────────────────────────────────────────────────────────────
+
+export function parseFoodXlsx(buffer) {
+  try {
+    const wb         = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+    const entriesWs  = wb.Sheets['Entries'];
+    const itemsWs    = wb.Sheets['Items'];
+    const settingsWs = wb.Sheets['Settings'];
+
+    const entryRows = entriesWs  ? XLSX.utils.sheet_to_json(entriesWs)  : [];
+    const itemRows  = itemsWs    ? XLSX.utils.sheet_to_json(itemsWs)    : [];
+    const settings  = settingsWs ? XLSX.utils.sheet_to_json(settingsWs) : [];
+
+    const target = settings.find(r => r.key === 'calorieTarget')?.value ?? 2200;
+
+    return {
+      entries: entryRows
+        .filter(e => e.id && e.date)
+        .map(e => ({
+          id:         e.id,
+          date:       String(e.date),
+          time:       e.time || '',
+          text:       e.text || '',
+          calories:   Number(e.calories) || 0,
+          protein:    Number(e.protein)  || 0,
+          carbs:      Number(e.carbs)    || 0,
+          fat:        Number(e.fat)      || 0,
+          notes:      e.notes || '',
+          model:      e.model || '',
+          analyzedAt: e.analyzedAt || '',
+          items: itemRows
+            .filter(i => i.entryId === e.id)
+            .map(i => ({
+              name:     i.name || '',
+              qty:      i.qty  || '',
+              calories: Number(i.calories) || 0,
+              protein:  Number(i.protein)  || 0,
+              carbs:    Number(i.carbs)    || 0,
+              fat:      Number(i.fat)      || 0,
+            })),
+        })),
+      target: Number(target) || 2200,
+    };
+  } catch { return { entries: [], target: 2200 }; }
+}
+
+export function buildFoodXlsx(entries, target = 2200) {
+  const wb = XLSX.utils.book_new();
+
+  const entryRows = entries.map(e => ({
+    id:         e.id,
+    date:       e.date,
+    time:       e.time || '',
+    text:       e.text || '',
+    calories:   e.calories || 0,
+    protein:    e.protein  || 0,
+    carbs:      e.carbs    || 0,
+    fat:        e.fat      || 0,
+    notes:      e.notes || '',
+    model:      e.model || '',
+    analyzedAt: e.analyzedAt || '',
+  }));
+
+  const itemRows = [];
+  entries.forEach(e => {
+    (e.items || []).forEach(i => {
+      itemRows.push({
+        entryId:  e.id,
+        name:     i.name || '',
+        qty:      i.qty  || '',
+        calories: i.calories || 0,
+        protein:  i.protein  || 0,
+        carbs:    i.carbs    || 0,
+        fat:      i.fat      || 0,
+      });
+    });
+  });
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    entryRows.length ? entryRows : emptyRow(['id','date','time','text','calories','protein','carbs','fat','notes','model','analyzedAt'])
+  ), 'Entries');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    itemRows.length ? itemRows : emptyRow(['entryId','name','qty','calories','protein','carbs','fat'])
+  ), 'Items');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { key: 'calorieTarget', value: target },
+  ]), 'Settings');
+
+  return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+}
+
 // ─── Templates ─────────────────────────────────────────────────────────────
 
 export function parseTemplatesXlsx(buffer) {
