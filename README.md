@@ -14,6 +14,7 @@ A personal workout tracking web app built with **Vue 3 + Element Plus**, deploye
 | **Calendar** | Monthly calendar with colour-coded session dots, click any day to see full session detail |
 | **History** | Full session history table, search by exercise name, filter by day, expandable set details, delete/edit |
 | **Personal Records** | Auto-detected best weight & reps per exercise, sparkline trend charts, history drawer with Chart.js |
+| **Food Log** | Describe meals in plain English — Groq estimates calories + macros with a per-item breakdown. Edit any entry and recompute. Daily deficit vs. target + training burn |
 | **Body Weight** | Daily weight log with time support (multiple entries per day), trend chart, goal setting |
 | **Templates** | Save any session as a reusable template, load into Log Workout in one click |
 | **Export** | Download full history as Excel with Sessions, Sets, Cardio, Body Weight sheets + date filter |
@@ -35,12 +36,14 @@ A personal workout tracking web app built with **Vue 3 + Element Plus**, deploye
 - **SheetJS (xlsx)** — read/write Excel files
 - **Google Drive API** — file storage via GIS OAuth2
 - **Chart.js** — weight trend and PR history charts
+- **Groq** — `openai/gpt-oss-120b` with strict JSON-schema output, for food calorie analysis
+- **Vercel Functions** — one serverless route (`/api/analyze-food`) so the Groq key stays server-side
 
 ---
 
 ## Data Storage
 
-All data lives in **4 Excel files on your Google Drive**. Nothing is stored in a database or server.
+All data lives in **5 Excel files on your Google Drive**. Nothing is stored in a database or server.
 
 | File | Contents |
 |------|----------|
@@ -48,6 +51,7 @@ All data lives in **4 Excel files on your Google Drive**. Nothing is stored in a
 | `workout_log.xlsx` | All logged sessions and sets |
 | `body_weight.xlsx` | Daily weight entries + goal setting |
 | `workout_templates.xlsx` | Saved workout templates |
+| `food_log.xlsx` | Food entries, per-item nutrition breakdown, daily calorie target |
 
 > The app caches data in `sessionStorage` — page refreshes are instant with no network call. Drive is only hit on first load per browser session or when you manually sync.
 
@@ -73,19 +77,38 @@ npm install
    - `https://your-app.vercel.app` (production)
 5. Copy the **Client ID**
 
-### 3. Configure environment
+### 3. Groq API key — for food calorie analysis
+
+1. Go to [console.groq.com/keys](https://console.groq.com/keys) → **Create API Key**
+2. Copy it (starts with `gsk_`)
+
+Skip this if you don't want the Food Log — the rest of the app works without it.
+
+### 4. Configure environment
 
 ```bash
-# Create .env.local (never commit this file)
-echo "VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com" > .env.local
+cp .env.example .env.local
+# then fill in both values
 ```
 
-### 4. Run locally
+```
+VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GROQ_API_KEY=gsk_your_key_here
+```
+
+> `GROQ_API_KEY` has **no** `VITE_` prefix on purpose. Vite only inlines `VITE_*`
+> variables into the browser bundle, so the Groq key is read exclusively by the
+> serverless function in [`api/analyze-food.js`](api/analyze-food.js) and never ships to the client.
+
+### 5. Run locally
 
 ```bash
 npm run dev
 # Open http://localhost:5173
 ```
+
+`npm run dev` serves `/api/analyze-food` through a Vite middleware that loads the same
+handler Vercel runs in production, so the Food Log works locally with no extra tooling.
 
 ---
 
@@ -93,8 +116,10 @@ npm run dev
 
 1. Push to GitHub
 2. Import on [vercel.com](https://vercel.com) — framework auto-detected as Vite
-3. **Settings → Environment Variables** → add `VITE_GOOGLE_CLIENT_ID`
+3. **Settings → Environment Variables** → add `VITE_GOOGLE_CLIENT_ID` and `GROQ_API_KEY`
 4. Redeploy
+
+`api/analyze-food.js` is picked up automatically as a Vercel Function — no config needed.
 
 ---
 
@@ -121,6 +146,16 @@ npm run dev
 ### Editing the plan
 **Weekly Plan** → **Edit** on any day → add/remove/reorder exercises → **Save Changes**
 
+### Logging food
+1. **Food Log** → type what you ate in plain English — *"2 chapati with dal, a cup of curd and 2 boiled eggs"*
+2. **Analyze calories** (or ⌘/Ctrl + Enter) — Groq breaks it into items and estimates kcal + macros
+3. Expand any entry to see the per-item breakdown and the assumptions it made
+4. Got it wrong? Hit ✎, fix the description, then **↻ Recompute** — the entry is re-analyzed in place
+5. ✕ deletes an entry
+
+**Deficit** is measured against `daily target + calories burned training that day`, so rest days
+automatically get a tighter allowance. Set your target in the right-hand panel.
+
 ### Body weight
 **Body Weight** → enter date, time, weight → **Save Entry**. Multiple entries per day supported (morning, post-workout, evening).
 
@@ -146,6 +181,9 @@ npm run dev
 ## Project Structure
 
 ```
+api/
+└── analyze-food.js            Vercel Function — Groq call, key never hits the browser
+
 src/
 ├── components/
 │   ├── AuthScreen.vue         Sign-in screen
@@ -156,16 +194,19 @@ src/
 │   ├── WorkoutHistory.vue     History table with search + export
 │   ├── PersonalRecords.vue    Auto-detected PRs with charts
 │   ├── BodyWeight.vue         Weight tracker with trend chart
+│   ├── FoodLog.vue            Calorie tracker with Groq analysis + deficit
 │   └── Templates.vue          Workout template library
 ├── composables/
 │   ├── usePRs.js              PR computation + live detection
+│   ├── useCalories.js         MET-based burn estimate + daily food totals
 │   ├── useDragSort.js         Drag-to-reorder (mouse + touch)
 │   └── useExport.js           Excel export helper
 ├── data/
 │   └── workoutPlan.js         Default 6-day plan + helpers
 ├── services/
 │   ├── googleDrive.js         OAuth2 + Drive API calls
-│   └── workoutData.js         xlsx parse/build for all 4 files
+│   ├── foodApi.js             Client wrapper for /api/analyze-food
+│   └── workoutData.js         xlsx parse/build for all 5 files
 ├── App.vue                    Root — auth, state, Drive sync, routing
 └── index.css                  Global styles + dark mode + responsive
 ```

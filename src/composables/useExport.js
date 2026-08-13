@@ -2,9 +2,9 @@ import * as XLSX from 'xlsx';
 
 /**
  * Export all workout data as a formatted Excel workbook.
- * Sheets: Sessions, Sets, Cardio, Body Weight
+ * Sheets: Sessions, Sets, Cardio, Body Weight, Food
  */
-export function exportToExcel({ sessions, bodyWeights, dateFrom, dateTo }) {
+export function exportToExcel({ sessions, bodyWeights, foodEntries, dateFrom, dateTo }) {
   const wb = XLSX.utils.book_new();
 
   const filtered = sessions.filter(s => {
@@ -75,6 +75,26 @@ export function exportToExcel({ sessions, bodyWeights, dateFrom, dateTo }) {
       'Note':       w.note || '',
     }));
 
+  // ── Sheet 5: Food ──────────────────────────────────────────────────────
+  const foodRows = (foodEntries || [])
+    .filter(e => {
+      if (dateFrom && e.date < dateFrom) return false;
+      if (dateTo   && e.date > dateTo)   return false;
+      return true;
+    })
+    .sort((a, b) => `${a.date} ${a.time || ''}`.localeCompare(`${b.date} ${b.time || ''}`))
+    .map(e => ({
+      'Date':        e.date,
+      'Time':        e.time || '',
+      'Description': e.text || '',
+      'Calories':    e.calories || 0,
+      'Protein (g)': e.protein  || 0,
+      'Carbs (g)':   e.carbs    || 0,
+      'Fat (g)':     e.fat      || 0,
+      'Items':       (e.items || []).map(i => `${i.qty} ${i.name}`.trim()).join('; '),
+      'Notes':       e.notes || '',
+    }));
+
   // ── Append sheets ──────────────────────────────────────────────────────
   const fallback = row => [row];
 
@@ -82,9 +102,10 @@ export function exportToExcel({ sessions, bodyWeights, dateFrom, dateTo }) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(setRows.length     ? setRows     : [{ Date:'', Workout:'', Exercise:'', Muscle:'', Type:'', 'Set #':'', Reps:'', 'Weight (kg)':'' }]), 'Sets');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cardioRows.length  ? cardioRows  : [{ Date:'', Workout:'', Treadmill:'', 'Treadmill (min)':'', Jogging:'', 'Jogging (min)':'', Cycling:'', 'Cycling (min)':'' }]), 'Cardio');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(weightRows.length  ? weightRows  : [{ Date:'', 'Weight (kg)':'', Note:'' }]), 'Body Weight');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(foodRows.length    ? foodRows    : [{ Date:'', Time:'', Description:'', Calories:'', 'Protein (g)':'', 'Carbs (g)':'', 'Fat (g)':'', Items:'', Notes:'' }]), 'Food');
 
   // ── Style header rows (bold) ───────────────────────────────────────────
-  ['Sessions','Sets','Cardio','Body Weight'].forEach(sheetName => {
+  ['Sessions','Sets','Cardio','Body Weight','Food'].forEach(sheetName => {
     const ws = wb.Sheets[sheetName];
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     for (let C = range.s.c; C <= range.e.c; C++) {

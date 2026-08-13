@@ -229,7 +229,7 @@ import { ElMessage } from 'element-plus';
 import { Edit, Delete, Download, Search } from '@element-plus/icons-vue';
 import { exportToExcel } from '../composables/useExport.js';
 
-const props = defineProps({ sessions: Array, plan: Object, bodyWeights: Array });
+const props = defineProps({ sessions: Array, plan: Object, bodyWeights: Array, foodEntries: Array });
 const emit  = defineEmits(['edit', 'delete']);
 
 // Export
@@ -253,6 +253,7 @@ function doExport() {
   exportToExcel({
     sessions:     props.sessions,
     bodyWeights:  props.bodyWeights || [],
+    foodEntries:  props.foodEntries || [],
     dateFrom:     exportFrom.value || null,
     dateTo:       exportTo.value   || null,
   });

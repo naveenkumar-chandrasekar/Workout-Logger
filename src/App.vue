@@ -52,6 +52,10 @@
         </button>
 
         <div class="sidebar-label">Health</div>
+        <button :class="['nav-item', { active: view === 'food' }]"       @click="switchView('food')">
+          <span class="nav-icon">🍽️</span><span>Food Log</span>
+          <span v-if="todayCalories > 0" class="nav-badge">{{ todayCalories }}</span>
+        </button>
         <button :class="['nav-item', { active: view === 'bodyweight' }]" @click="switchView('bodyweight')">
           <span class="nav-icon">⚖️</span><span>Body Weight</span>
         </button>
@@ -144,7 +148,7 @@
         />
         <WorkoutHistory
           v-else-if="view === 'history'"
-          :sessions="sessions" :plan="plan" :body-weights="bodyWeights"
+          :sessions="sessions" :plan="plan" :body-weights="bodyWeights" :food-entries="foodEntries"
           @edit="onEditSession"
           @delete="onDeleteSession"
         />
@@ -153,6 +157,15 @@
           :model-value="templates" :plan="plan"
           @update:model-value="onTemplatesUpdated"
           @load-template="onLoadTemplate"
+        />
+        <FoodLog
+          v-else-if="view === 'food'"
+          :model-value="foodEntries"
+          :target="calorieTarget"
+          :sessions="sessions"
+          :body-weights="bodyWeights"
+          @update:model-value="onFoodEntriesUpdated"
+          @update:target="onCalorieTargetUpdated"
         />
         <BodyWeight
           v-else-if="view === 'bodyweight'"
@@ -239,6 +252,7 @@ import LogWorkout     from './components/LogWorkout.vue';
 import WorkoutHistory from './components/WorkoutHistory.vue';
 import Templates      from './components/Templates.vue';
 import BodyWeight     from './components/BodyWeight.vue';
+import FoodLog        from './components/FoodLog.vue';
 import PersonalRecords from './components/PersonalRecords.vue';
 import CalendarView   from './components/CalendarView.vue';
 
@@ -249,6 +263,7 @@ import {
   parsePlanXlsx, buildPlanXlsx,
   parseBodyWeightXlsx, buildBodyWeightXlsx,
   parseTemplatesXlsx, buildTemplatesXlsx,
+  parseFoodXlsx, buildFoodXlsx,
 } from './services/workoutData.js';
 import { exportToExcel } from './composables/useExport.js';
 
@@ -275,7 +290,7 @@ function cacheClear() {
 }
 
 function cacheIsFull() {
-  return ['plan', 'log', 'weight', 'templates', 'driveIds']
+  return ['plan', 'log', 'weight', 'templates', 'food', 'driveIds']
     .every(k => sessionStorage.getItem(CACHE + k) !== null);
 }
 
@@ -293,6 +308,8 @@ const sessions     = ref([]);
 const bodyWeights  = ref([]);
 const weightGoal   = ref(74);
 const templates    = ref([]);
+const foodEntries  = ref([]);
+const calorieTarget = ref(2200);
 const view              = ref('dashboard');
 const editingSession    = ref(null);
 const preloadedTemplate = ref(null);
@@ -313,19 +330,20 @@ const allNavItems = [
   { view: 'log',        icon: '💪', label: 'Log Workout' },
   { view: 'history',    icon: '📅', label: 'History' },
   { view: 'templates',  icon: '📄', label: 'Templates' },
+  { view: 'food',       icon: '🍽️', label: 'Food Log' },
   { view: 'bodyweight', icon: '⚖️', label: 'Body Weight' },
   { view: 'records',    icon: '🏆', label: 'Personal Records' },
   { view: 'calendar',  icon: '🗓️', label: 'Calendar' },
 ];
 
 // ── Drive file IDs ─────────────────────────────────────────────────────────
-const driveIds = { plan: null, log: null, weight: null, templates: null };
+const driveIds = { plan: null, log: null, weight: null, templates: null, food: null };
 
 // ── Computed ───────────────────────────────────────────────────────────────
 const pageTitle = computed(() => ({
   dashboard: 'Dashboard', plan: 'Weekly Plan', log: 'Log Workout',
   history: 'History', templates: 'Templates', bodyweight: 'Body Weight',
-  records: 'Personal Records', calendar: 'Calendar',
+  records: 'Personal Records', calendar: 'Calendar', food: 'Food Log',
 }[view.value] || 'Dashboard'));
 
 const currentDate = computed(() =>
@@ -334,6 +352,12 @@ const currentDate = computed(() =>
 
 const todaySessions = computed(() =>
   sessions.value.filter(s => s.date === today()).length
+);
+
+const todayCalories = computed(() =>
+  Math.round(foodEntries.value
+    .filter(e => e.date === today())
+    .reduce((a, e) => a + (Number(e.calories) || 0), 0))
 );
 
 // ── Boot ───────────────────────────────────────────────────────────────────
@@ -422,6 +446,7 @@ async function loadAllFromDrive() {
     { key: 'log',       name: 'workout_log.xlsx' },
     { key: 'weight',    name: 'body_weight.xlsx' },
     { key: 'templates', name: 'workout_templates.xlsx' },
+    { key: 'food',      name: 'food_log.xlsx' },
   ];
 
   for (const f of files) {
@@ -450,6 +475,7 @@ function getDefaultFileData(key) {
   if (key === 'log')       return buildLogXlsx([]);
   if (key === 'weight')    return buildBodyWeightXlsx([], weightGoal.value);
   if (key === 'templates') return buildTemplatesXlsx([]);
+  if (key === 'food')      return buildFoodXlsx([], calorieTarget.value);
   return [];
 }
 
@@ -470,6 +496,11 @@ function parseAndStore(key, buf) {
     const t = parseTemplatesXlsx(buf);
     templates.value = t;
     cacheWrite('templates', t);
+  } else if (key === 'food') {
+    const { entries, target } = parseFoodXlsx(buf);
+    foodEntries.value   = entries;
+    calorieTarget.value = target;
+    cacheWrite('food', { entries, target });
   }
   // persist drive file IDs so cache knows where to save
   cacheWrite('driveIds', driveIds);
@@ -488,6 +519,9 @@ function restoreFromCache() {
   const cachedTemplates = cacheRead('templates');
   if (cachedTemplates) templates.value = cachedTemplates;
 
+  const cachedFood = cacheRead('food');
+  if (cachedFood) { foodEntries.value = cachedFood.entries; calorieTarget.value = cachedFood.target; }
+
   const cachedIds = cacheRead('driveIds');
   if (cachedIds) Object.assign(driveIds, cachedIds);
 }
@@ -497,7 +531,7 @@ async function saveToDrive(key, data) {
   if (!driveConnected.value) return;
   saving.value = true;
   try {
-    const names = { plan: 'workout_plan.xlsx', log: 'workout_log.xlsx', weight: 'body_weight.xlsx', templates: 'workout_templates.xlsx' };
+    const names = { plan: 'workout_plan.xlsx', log: 'workout_log.xlsx', weight: 'body_weight.xlsx', templates: 'workout_templates.xlsx', food: 'food_log.xlsx' };
     if (!driveIds[key]) {
       const file = await Drive.createFile(names[key], new Uint8Array(data));
       driveIds[key] = file.id;
@@ -590,6 +624,18 @@ async function onGoalUpdated(newGoal) {
   await saveToDrive('weight', buildBodyWeightXlsx(bodyWeights.value, newGoal));
 }
 
+async function onFoodEntriesUpdated(updated) {
+  foodEntries.value = updated;
+  cacheWrite('food', { entries: updated, target: calorieTarget.value });
+  await saveToDrive('food', buildFoodXlsx(updated, calorieTarget.value));
+}
+
+async function onCalorieTargetUpdated(newTarget) {
+  calorieTarget.value = newTarget;
+  cacheWrite('food', { entries: foodEntries.value, target: newTarget });
+  await saveToDrive('food', buildFoodXlsx(foodEntries.value, newTarget));
+}
+
 async function onTemplatesUpdated(updated) {
   templates.value = updated;
   cacheWrite('templates', updated);
@@ -624,7 +670,7 @@ async function handleCmd(cmd) {
     appState.value = 'app';
     ElMessage.success('Synced!');
   } else if (cmd === 'export') {
-    exportToExcel({ sessions: sessions.value, bodyWeights: bodyWeights.value, dateFrom: null, dateTo: null });
+    exportToExcel({ sessions: sessions.value, bodyWeights: bodyWeights.value, foodEntries: foodEntries.value, dateFrom: null, dateTo: null });
   } else if (cmd === 'signout') {
     forceSignOut();
   } else if (cmd === 'setup') {
@@ -642,7 +688,9 @@ function forceSignOut(expired = false) {
   sessions.value    = [];
   bodyWeights.value = [];
   templates.value   = [];
+  foodEntries.value = [];
   weightGoal.value  = 74;
+  calorieTarget.value = 2200;
   if (expired) {
     ElMessage.warning({ message: 'Your session expired. Please sign in again.', duration: 4000 });
   } else {
