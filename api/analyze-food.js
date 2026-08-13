@@ -71,7 +71,10 @@ async function callGroq(apiKey, text, strict) {
   const body = {
     model: GROQ_MODEL,
     temperature: 0.2,
-    max_completion_tokens: 8192,
+    // Groq reserves this against the tokens-per-minute quota whether it is used
+    // or not, so it has to stay well under the 8K TPM free-tier cap — the prompt
+    // and a possible fallback retry share the same budget.
+    max_completion_tokens: 2000,
     response_format: strict
       ? { type: 'json_schema', json_schema: NUTRITION_SCHEMA }
       : { type: 'json_object' },
@@ -119,6 +122,9 @@ export default async function handler(req, res) {
   }
 
   if (!attempt.ok) {
+    if (attempt.raw.includes('rate_limit_exceeded')) {
+      return send(res, 429, { error: 'Groq rate limit reached — wait about a minute and try again.' });
+    }
     return send(res, attempt.status, { error: `Groq error ${attempt.status}: ${attempt.raw.slice(0, 400)}` });
   }
 
