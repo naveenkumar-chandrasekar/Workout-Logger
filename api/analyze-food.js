@@ -34,6 +34,9 @@ const NUTRITION_SCHEMA = {
   },
 };
 
+const SHAPE_HINT = `Reply with JSON only, in exactly this shape:
+{"items":[{"name":"string","qty":"string","calories":0,"protein":0,"carbs":0,"fat":0}],"calories":0,"protein":0,"carbs":0,"fat":0,"notes":"string"}`;
+
 const SYSTEM_PROMPT = `You are a nutrition estimator. The user describes food they ate in free text, often informally and often Indian or South Indian cuisine.
 
 Break the description into individual food items. For each item estimate calories (kcal) and macros in grams. Then give the totals across all items.
@@ -64,6 +67,34 @@ function send(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+async function callGroq(apiKey, text, strict) {
+  const body = {
+    model: GROQ_MODEL,
+    temperature: 0.2,
+    max_completion_tokens: 8192,
+    response_format: strict
+      ? { type: 'json_schema', json_schema: NUTRITION_SCHEMA }
+      : { type: 'json_object' },
+    messages: [
+      { role: 'system', content: strict ? SYSTEM_PROMPT : `${SYSTEM_PROMPT}\n\n${SHAPE_HINT}` },
+      { role: 'user',   content: text },
+    ],
+  };
+
+  // gpt-oss reasoning tokens are billed against max_completion_tokens; keep them short
+  // or the model runs out of budget mid-JSON and Groq rejects the generation.
+  if (GROQ_MODEL.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
+
+  const resp = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const raw = await resp.text();
+  return { ok: resp.ok, status: resp.status, raw };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
 
@@ -73,36 +104,27 @@ export default async function handler(req, res) {
   const { text } = await readBody(req);
   if (!text || !String(text).trim()) return send(res, 400, { error: 'No food description provided' });
 
-  let groqRes;
+  const prompt = String(text).trim();
+
+  let attempt;
   try {
-    groqRes = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        Authorization:  `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        temperature: 0.2,
-        max_completion_tokens: 2048,
-        response_format: { type: 'json_schema', json_schema: NUTRITION_SCHEMA },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user',   content: String(text).trim() },
-        ],
-      }),
-    });
+    attempt = await callGroq(apiKey, prompt, true);
+    // Constrained decoding can still fail to close the JSON in budget; json_object
+    // mode is looser and almost always lands, so fall back rather than erroring out.
+    if (!attempt.ok && attempt.raw.includes('json_validate_failed')) {
+      attempt = await callGroq(apiKey, prompt, false);
+    }
   } catch (e) {
     return send(res, 502, { error: `Could not reach Groq: ${e.message}` });
   }
 
-  if (!groqRes.ok) {
-    const detail = await groqRes.text().catch(() => '');
-    return send(res, groqRes.status, { error: `Groq error ${groqRes.status}: ${detail.slice(0, 400)}` });
+  if (!attempt.ok) {
+    return send(res, attempt.status, { error: `Groq error ${attempt.status}: ${attempt.raw.slice(0, 400)}` });
   }
 
-  const payload = await groqRes.json();
-  const content = payload?.choices?.[0]?.message?.content;
+  let content;
+  try { content = JSON.parse(attempt.raw)?.choices?.[0]?.message?.content; }
+  catch { return send(res, 502, { error: 'Groq returned an unreadable response' }); }
   if (!content) return send(res, 502, { error: 'Groq returned an empty response' });
 
   let parsed;
@@ -111,20 +133,27 @@ export default async function handler(req, res) {
 
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
+  const items = (Array.isArray(parsed.items) ? parsed.items : []).map(i => ({
+    name:     String(i.name || ''),
+    qty:      String(i.qty  || ''),
+    calories: Math.round(num(i.calories)),
+    protein:  +num(i.protein).toFixed(1),
+    carbs:    +num(i.carbs).toFixed(1),
+    fat:      +num(i.fat).toFixed(1),
+  }));
+
+  // json_object mode isn't schema-bound, so totals can come back missing or
+  // inconsistent with the items. Trust the items and derive the totals from them.
+  const sum = key => items.reduce((a, i) => a + i[key], 0);
+  const total = key => (items.length ? sum(key) : num(parsed[key]));
+
   return send(res, 200, {
-    calories: Math.round(num(parsed.calories)),
-    protein:  +num(parsed.protein).toFixed(1),
-    carbs:    +num(parsed.carbs).toFixed(1),
-    fat:      +num(parsed.fat).toFixed(1),
+    calories: Math.round(total('calories')),
+    protein:  +total('protein').toFixed(1),
+    carbs:    +total('carbs').toFixed(1),
+    fat:      +total('fat').toFixed(1),
     notes:    String(parsed.notes || ''),
     model:    GROQ_MODEL,
-    items: (Array.isArray(parsed.items) ? parsed.items : []).map(i => ({
-      name:     String(i.name || ''),
-      qty:      String(i.qty  || ''),
-      calories: Math.round(num(i.calories)),
-      protein:  +num(i.protein).toFixed(1),
-      carbs:    +num(i.carbs).toFixed(1),
-      fat:      +num(i.fat).toFixed(1),
-    })),
+    items,
   });
 }
