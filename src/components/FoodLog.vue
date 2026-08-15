@@ -102,7 +102,15 @@
               @keydown.meta.enter="addEntry"
             />
             <div class="fd-composer-actions">
-              <span class="fd-hint">⌘/Ctrl + Enter to analyze</span>
+              <span class="fd-hint">
+                <template v-if="isLateNight && selectedDate === todayIso">
+                  🌙 Late night — logging to <strong>{{ formatDate(todayIso) }}</strong>
+                </template>
+                <template v-else-if="selectedDate !== todayIso">
+                  Logging to <strong>{{ formatDate(selectedDate) }}</strong>
+                </template>
+                <template v-else>⌘/Ctrl + Enter to analyze</template>
+              </span>
               <el-button
                 type="primary"
                 :icon="MagicStick"
@@ -269,10 +277,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, ArrowRight, Delete, Edit, Refresh, MagicStick } from '@element-plus/icons-vue';
-import { uid, today } from '../data/workoutPlan.js';
+import { uid } from '../data/workoutPlan.js';
 import { analyzeFood } from '../services/foodApi.js';
 import { dayTotals, estimateDayBurn, burnBreakdown, latestBodyWeight } from '../composables/useCalories.js';
 
@@ -284,9 +292,40 @@ const props = defineProps({
 });
 const emit = defineEmits(['update:modelValue', 'update:target']);
 
+const DAY_CUTOFF_HOUR = 4;
+
+function localIso(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function logicalToday(d = new Date()) {
+  const iso = localIso(d);
+  return d.getHours() < DAY_CUTOFF_HOUR ? addDays(iso, -1) : iso;
+}
+
 const entries      = computed(() => props.modelValue || []);
-const todayIso     = today();
-const selectedDate = ref(todayIso);
+const todayIso     = ref(logicalToday());
+const selectedDate = ref(todayIso.value);
+const isLateNight  = ref(new Date().getHours() < DAY_CUTOFF_HOUR);
+
+function syncToday() {
+  const next = logicalToday();
+  isLateNight.value = new Date().getHours() < DAY_CUTOFF_HOUR;
+  if (next === todayIso.value) return;
+  const wasOnToday = selectedDate.value === todayIso.value;
+  todayIso.value = next;
+  if (wasOnToday) selectedDate.value = next;
+}
+
+let tick;
+onMounted(() => {
+  tick = setInterval(syncToday, 60_000);
+  document.addEventListener('visibilitychange', syncToday);
+});
+onUnmounted(() => {
+  clearInterval(tick);
+  document.removeEventListener('visibilitychange', syncToday);
+});
 
 const draft       = ref('');
 const analyzing   = ref(false);
@@ -317,14 +356,21 @@ function addDays(iso, n) {
 
 function shiftDay(n) {
   const iso = addDays(selectedDate.value, n);
-  if (iso > todayIso) return;
+  if (iso > todayIso.value) return;
   selectedDate.value = iso;
+}
+
+function timeOrder(time) {
+  const h = Number((time || '').slice(0, 2));
+  if (!Number.isFinite(h)) return -1;
+  const mins = Number((time || '').slice(3, 5)) || 0;
+  return (h < DAY_CUTOFF_HOUR ? h + 24 : h) * 60 + mins;
 }
 
 const dayEntries = computed(() =>
   entries.value
     .filter(e => e.date === selectedDate.value)
-    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+    .sort((a, b) => timeOrder(a.time) - timeOrder(b.time))
 );
 
 const totals     = computed(() => dayTotals(entries.value, selectedDate.value));
@@ -361,9 +407,10 @@ async function addEntry() {
   analyzing.value = true;
   try {
     const result = await analyzeFood(text);
+    syncToday();
     const entry = {
       id:         uid(),
-      date:       selectedDate.value,
+      date:       selectedDate.value === todayIso.value ? logicalToday() : selectedDate.value,
       time:       nowTime(),
       text,
       calories:   result.calories,
@@ -372,7 +419,7 @@ async function addEntry() {
       fat:        result.fat,
       notes:      result.notes,
       model:      result.model,
-      analyzedAt: `${formatDate(today())} ${nowTime()}`,
+      analyzedAt: `${formatDate(localIso())} ${nowTime()}`,
       items:      result.items,
     };
     emit('update:modelValue', [...entries.value, entry]);
@@ -412,7 +459,7 @@ async function recompute(entry) {
           fat:        result.fat,
           notes:      result.notes,
           model:      result.model,
-          analyzedAt: `${formatDate(today())} ${nowTime()}`,
+          analyzedAt: `${formatDate(localIso())} ${nowTime()}`,
           items:      result.items,
         }
       : e);
