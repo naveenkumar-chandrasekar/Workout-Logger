@@ -66,14 +66,25 @@
       <div class="fd-bar-track">
         <div class="fd-bar-fill" :class="{ over: totals.calories > allowance }" :style="{ width: Math.min(100, pct) + '%' }" />
       </div>
-      <div class="fd-week-strip">
-        <div v-for="d in weekStrip" :key="d.date" class="fd-week-day" :class="{ active: d.date === selectedDate }" @click="selectedDate = d.date">
+      <div class="fd-strip-wrap" :class="{ 'fade-l': canScrollLeft, 'fade-r': canScrollRight }">
+      <div ref="stripEl" class="fd-week-strip" :style="{ '--strip-visible': STRIP_WINDOW }" @scroll.passive="onStripScroll">
+        <div
+          v-for="d in dayStrip"
+          :key="d.date"
+          :data-date="d.date"
+          class="fd-week-day"
+          :class="{ active: d.date === selectedDate, today: d.date === todayIso }"
+          :title="`${formatDate(d.date)} — ${d.consumed} / ${d.allowance} kcal`"
+          @click="selectedDate = d.date"
+        >
           <div class="fd-week-bar-wrap">
             <div class="fd-week-bar" :class="{ over: d.consumed > d.allowance }" :style="{ height: d.height + '%' }" />
           </div>
           <div class="fd-week-name">{{ d.name }}</div>
+          <div class="fd-week-date">{{ d.dayNum }}{{ d.showMonth ? ' ' + d.month : '' }}</div>
           <div class="fd-week-val">{{ d.consumed || '—' }}</div>
         </div>
+      </div>
       </div>
     </div>
 
@@ -277,7 +288,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ArrowLeft, ArrowRight, Delete, Edit, Refresh, MagicStick } from '@element-plus/icons-vue';
 import { uid } from '../data/workoutPlan.js';
@@ -318,13 +329,18 @@ function syncToday() {
 }
 
 let tick;
+const onResize = () => centerSelected('auto');
+
 onMounted(() => {
   tick = setInterval(syncToday, 60_000);
   document.addEventListener('visibilitychange', syncToday);
+  window.addEventListener('resize', onResize);
+  nextTick(() => centerSelected('auto'));
 });
 onUnmounted(() => {
   clearInterval(tick);
   document.removeEventListener('visibilitychange', syncToday);
+  window.removeEventListener('resize', onResize);
 });
 
 const draft       = ref('');
@@ -381,12 +397,29 @@ const allowance  = computed(() => props.target + burn.value);
 const balance    = computed(() => allowance.value - totals.value.calories);
 const pct        = computed(() => (allowance.value ? Math.round((totals.value.calories / allowance.value) * 100) : 0));
 
-const weekStrip = computed(() => {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const iso = addDays(selectedDate.value, -(6 - i));
+const STRIP_DAYS   = 30;
+const STRIP_SIDE   = 15;
+const STRIP_WINDOW = 7;
+
+function daysBetween(a, b) {
+  const ms = new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`);
+  return Math.round(ms / 86_400_000);
+}
+
+const dayStrip = computed(() => {
+  const after  = Math.min(STRIP_SIDE - 1, Math.max(0, daysBetween(selectedDate.value, todayIso.value)));
+  const before = STRIP_DAYS - 1 - after;
+  const start  = addDays(selectedDate.value, -before);
+
+  const days = Array.from({ length: STRIP_DAYS }, (_, i) => {
+    const iso = addDays(start, i);
+    const [, m, dd] = iso.split('-');
     return {
       date: iso,
       name: DAYS[new Date(`${iso}T00:00:00`).getDay()],
+      dayNum: Number(dd),
+      month: MONTHS[Number(m) - 1],
+      showMonth: i === 0 || Number(dd) === 1,
       consumed: dayTotals(entries.value, iso).calories,
       allowance: props.target + estimateDayBurn(props.sessions, iso, kg.value),
     };
@@ -394,6 +427,28 @@ const weekStrip = computed(() => {
   const peak = Math.max(...days.map(d => d.consumed), 1);
   return days.map(d => ({ ...d, height: Math.round((d.consumed / peak) * 100) }));
 });
+
+const stripEl        = ref(null);
+const canScrollLeft  = ref(false);
+const canScrollRight = ref(false);
+
+function onStripScroll() {
+  const box = stripEl.value;
+  if (!box) return;
+  canScrollLeft.value  = box.scrollLeft > 4;
+  canScrollRight.value = box.scrollLeft + box.clientWidth < box.scrollWidth - 4;
+}
+
+function centerSelected(behavior = 'smooth') {
+  const box = stripEl.value;
+  if (!box) return;
+  const cell = box.querySelector(`[data-date="${selectedDate.value}"]`);
+  if (!cell) return;
+  box.scrollTo({ left: cell.offsetLeft - (box.clientWidth - cell.clientWidth) / 2, behavior });
+  setTimeout(onStripScroll, behavior === 'smooth' ? 400 : 0);
+}
+
+watch(selectedDate, () => nextTick(centerSelected));
 
 function toggleExpand(id) {
   const s = new Set(expanded.value);
@@ -535,25 +590,65 @@ function removeEntry(entry) {
 }
 .fd-bar-fill.over { background: linear-gradient(90deg, #f59e0b, var(--danger)); }
 
-/* ── Week strip ── */
+/* ── Day strip (7 visible, 30 scrollable) ── */
+.fd-strip-wrap { position: relative; }
+.fd-strip-wrap::before,
+.fd-strip-wrap::after {
+  content: '';
+  position: absolute;
+  top: 14px;
+  bottom: 0;
+  width: 44px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s;
+  z-index: 1;
+}
+.fd-strip-wrap::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--card), transparent);
+}
+.fd-strip-wrap::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--card), transparent);
+}
+.fd-strip-wrap.fade-l::before,
+.fd-strip-wrap.fade-r::after { opacity: 1; }
+
 .fd-week-strip {
   display: flex;
   gap: 6px;
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  padding-bottom: 6px;
 }
+.fd-week-strip::-webkit-scrollbar { height: 6px; }
+.fd-week-strip::-webkit-scrollbar-track { background: transparent; }
+.fd-week-strip::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.fd-week-strip::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 
 .fd-week-day {
-  flex: 1;
+  flex: 0 0 calc((100% - (var(--strip-visible) - 1) * 6px) / var(--strip-visible));
   text-align: center;
   cursor: pointer;
   border-radius: 8px;
   padding: 4px 2px;
   transition: background 0.14s;
+  scroll-snap-align: center;
 }
 .fd-week-day:hover  { background: var(--surface); }
 .fd-week-day.active { background: var(--primary-light); }
+.fd-week-day.today .fd-week-name { color: var(--primary); }
 
 .fd-week-bar-wrap { height: 40px; display: flex; align-items: flex-end; justify-content: center; }
 .fd-week-bar {
@@ -565,6 +660,7 @@ function removeEntry(entry) {
 }
 .fd-week-bar.over { background: var(--danger); }
 .fd-week-name { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; margin-top: 5px; }
+.fd-week-date { font-size: 10px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
 .fd-week-val  { font-size: 11px; font-weight: 600; color: var(--text-2); }
 
 /* ── Grid ── */
