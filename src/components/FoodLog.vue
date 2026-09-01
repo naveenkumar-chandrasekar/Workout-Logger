@@ -263,7 +263,7 @@
             <template v-else>
               <div class="fd-burn-row">
                 <span class="fd-burn-key">Resistance</span>
-                <span class="fd-burn-sub">{{ breakdown.sets }} sets ≈ {{ breakdown.sets * 3 }} min</span>
+                <span class="fd-burn-sub">{{ breakdown.sets }} sets ≈ {{ Math.round(breakdown.resistanceMinutes) }} min</span>
                 <span class="fd-burn-val">{{ breakdown.resistanceKcal }}</span>
               </div>
               <div class="fd-burn-row">
