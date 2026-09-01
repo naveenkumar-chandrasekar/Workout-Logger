@@ -5,23 +5,17 @@
  * sets/reps/weight and cardio at save time — and falls back to the ACSM MET
  * formula (kcal/min = MET × 3.5 × bodyweight(kg) / 200) for sessions saved
  * before that existed. Cardio duration is whatever was logged; resistance
- * duration per set is estimated from its rep count (SECONDS_PER_REP), capped
- * at MAX_SET_SECONDS since sessions aren't timed and a single set shouldn't
- * be allowed to blow up the estimate.
+ * duration is set count × MINUTES_PER_SET, a flat cap since sessions aren't
+ * timed per set.
  */
 
 export const CARDIO_METS = { treadmill: 7.0, jogging: 9.0, cycling: 7.0 };
-export const RESISTANCE_MET   = 5.0;
-export const SECONDS_PER_REP  = 3;
-export const MAX_SET_SECONDS  = 60;
+export const RESISTANCE_MET  = 5.0;
+export const MINUTES_PER_SET = 1;
 export const DEFAULT_BODY_WEIGHT = 70;
 
 function metKcal(met, kg, minutes) {
   return (met * 3.5 * kg) / 200 * minutes;
-}
-
-function setSeconds(reps) {
-  return Math.min(MAX_SET_SECONDS, (Number(reps) || 0) * SECONDS_PER_REP);
 }
 
 function isWorkedSet(set) {
@@ -29,9 +23,9 @@ function isWorkedSet(set) {
   return reps !== '' && reps !== '0';
 }
 
-function sessionResistanceSeconds(session) {
+function sessionWorkedSets(session) {
   return (session.exercises || []).reduce(
-    (a, ex) => a + ex.sets.reduce((b, s) => b + (isWorkedSet(s) ? setSeconds(s.reps) : 0), 0),
+    (a, ex) => a + ex.sets.filter(isWorkedSet).length,
     0
   );
 }
@@ -51,8 +45,8 @@ export function estimateSessionBurn(session, kg = DEFAULT_BODY_WEIGHT) {
 
   let kcal = 0;
 
-  const resistanceSeconds = sessionResistanceSeconds(session);
-  if (resistanceSeconds) kcal += metKcal(RESISTANCE_MET, kg, resistanceSeconds / 60);
+  const workedSets = sessionWorkedSets(session);
+  if (workedSets) kcal += metKcal(RESISTANCE_MET, kg, workedSets * MINUTES_PER_SET);
 
   Object.entries(session.cardio || {}).forEach(([key, c]) => {
     if (c?.done) kcal += metKcal(CARDIO_METS[key] ?? 6, kg, Number(c.duration) || 0);
@@ -80,11 +74,11 @@ export function burnBreakdown(sessions, date, kg = DEFAULT_BODY_WEIGHT) {
     (a, s) => a + Object.values(s.cardio || {}).reduce((b, c) => b + (c?.done ? Number(c.duration) || 0 : 0), 0), 0
   );
 
-  const resistanceMinutes = onDate.reduce((a, s) => a + sessionResistanceSeconds(s) / 60, 0);
+  const resistanceMinutes = onDate.reduce((a, s) => a + sessionWorkedSets(s) * MINUTES_PER_SET, 0);
 
   const resistanceKcal = Math.round(onDate.reduce((a, s) => {
     if (Number.isFinite(s.burn?.resistanceCalories)) return a + s.burn.resistanceCalories;
-    return a + metKcal(RESISTANCE_MET, kg, sessionResistanceSeconds(s) / 60);
+    return a + metKcal(RESISTANCE_MET, kg, sessionWorkedSets(s) * MINUTES_PER_SET);
   }, 0));
 
   const cardioKcal = Math.round(onDate.reduce((a, s) => {

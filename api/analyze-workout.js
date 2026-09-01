@@ -9,8 +9,7 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 // bounded quantity models can classify consistently; the kcal = MET x 3.5 x
 // kg / 200 x minutes conversion is done here in JS so it's exact and
 // reproducible every time.
-const SECONDS_PER_REP = 3;
-const MAX_SET_SECONDS = 60;
+const MINUTES_PER_SET = 1;
 const RESISTANCE_MET_RANGE   = [2, 10];
 const CARDIO_MET_RANGE       = [2, 14];
 const DEFAULT_RESISTANCE_MET = 5;
@@ -24,12 +23,6 @@ function clamp(value, [lo, hi], fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(hi, Math.max(lo, n));
-}
-
-// A set's own working time is estimated from its rep count, not assumed flat —
-// capped at one minute so a very high-rep set can't blow up the estimate.
-function setMinutes(reps) {
-  return Math.min(MAX_SET_SECONDS, (Number(reps) || 0) * SECONDS_PER_REP) / 60;
 }
 
 const MET_SCHEMA = {
@@ -205,7 +198,7 @@ export default async function handler(req, res) {
 
   const resistanceCalories = Math.round(exList.reduce((a, ex) => {
     const met     = clamp(metByExercise.get(ex.name), RESISTANCE_MET_RANGE, DEFAULT_RESISTANCE_MET);
-    const minutes = ex.sets.reduce((m, s) => m + setMinutes(s.reps), 0);
+    const minutes = ex.sets.length * MINUTES_PER_SET;
     return a + metKcal(met, kg, minutes);
   }, 0));
 
