@@ -278,7 +278,7 @@
               </div>
             </template>
             <div class="fd-target-note">
-              MET-based estimate — resistance work is costed at 3 min per completed set since sessions aren't timed.
+              Estimated by AI from your logged sets, reps, weight and cardio at save time — falls back to a MET-based estimate for older sessions.
             </div>
           </div>
         </div>

@@ -1,8 +1,11 @@
 /**
  * useCalories — calorie burn estimation and daily food aggregation.
  *
- * Burn uses the ACSM MET formula:  kcal/min = MET × 3.5 × bodyweight(kg) / 200
- * Resistance duration is inferred from set count since sessions are not timed.
+ * Burn prefers session.burn — an LLM (Groq) estimate computed from the actual
+ * sets/reps/weight and cardio at save time — and falls back to the ACSM MET
+ * formula (kcal/min = MET × 3.5 × bodyweight(kg) / 200) for sessions saved
+ * before that existed. Resistance duration is inferred from set count since
+ * sessions are not timed.
  */
 
 export const CARDIO_METS = { treadmill: 7.0, jogging: 9.0, cycling: 7.0 };
@@ -25,6 +28,8 @@ export function latestBodyWeight(bodyWeights) {
 }
 
 export function estimateSessionBurn(session, kg = DEFAULT_BODY_WEIGHT) {
+  if (Number.isFinite(session?.burn?.calories)) return Math.round(session.burn.calories);
+
   let kcal = 0;
 
   const workedSets = (session.exercises || []).reduce(
@@ -59,17 +64,22 @@ export function burnBreakdown(sessions, date, kg = DEFAULT_BODY_WEIGHT) {
     (a, s) => a + Object.values(s.cardio || {}).reduce((b, c) => b + (c?.done ? Number(c.duration) || 0 : 0), 0), 0
   );
 
-  return {
-    sessions:     onDate.length,
-    sets,
-    cardioMinutes,
-    resistanceKcal: Math.round(metKcal(RESISTANCE_MET, kg, sets * MINUTES_PER_SET)),
-    cardioKcal:     Math.round(onDate.reduce(
-      (a, s) => a + Object.entries(s.cardio || {}).reduce(
-        (b, [key, c]) => b + (c?.done ? metKcal(CARDIO_METS[key] ?? 6, kg, Number(c.duration) || 0) : 0), 0
-      ), 0
-    )),
-  };
+  const resistanceKcal = Math.round(onDate.reduce((a, s) => {
+    if (Number.isFinite(s.burn?.resistanceCalories)) return a + s.burn.resistanceCalories;
+    const workedSets = (s.exercises || []).reduce(
+      (b, ex) => b + ex.sets.filter(x => String(x.reps).trim() !== '' && String(x.reps).trim() !== '0').length, 0
+    );
+    return a + metKcal(RESISTANCE_MET, kg, workedSets * MINUTES_PER_SET);
+  }, 0));
+
+  const cardioKcal = Math.round(onDate.reduce((a, s) => {
+    if (Number.isFinite(s.burn?.cardioCalories)) return a + s.burn.cardioCalories;
+    return a + Object.entries(s.cardio || {}).reduce(
+      (b, [key, c]) => b + (c?.done ? metKcal(CARDIO_METS[key] ?? 6, kg, Number(c.duration) || 0) : 0), 0
+    );
+  }, 0));
+
+  return { sessions: onDate.length, sets, cardioMinutes, resistanceKcal, cardioKcal };
 }
 
 export function dayTotals(entries, date) {

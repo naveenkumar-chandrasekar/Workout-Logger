@@ -362,8 +362,10 @@ import { ArrowLeft, Delete, Plus, Close, Search, Check } from '@element-plus/ico
 import { sessionFromPlan, newCustomSession, makeSets, uid, today, deepClone } from '../data/workoutPlan.js';
 import { computePRs, getPRType as _getPRType, PR_LABELS } from '../composables/usePRs.js';
 import { useDragSort } from '../composables/useDragSort.js';
+import { latestBodyWeight } from '../composables/useCalories.js';
+import { analyzeWorkout } from '../services/workoutApi.js';
 
-const props = defineProps({ plan: Object, sessions: Array, editSession: Object, preloadedTemplate: Object });
+const props = defineProps({ plan: Object, sessions: Array, bodyWeights: Array, editSession: Object, preloadedTemplate: Object });
 const emit  = defineEmits(['save', 'cancel', 'template-consumed', 'save-template', 'session-changed']);
 
 const selectedDate    = ref(today());
@@ -533,6 +535,20 @@ async function saveSession() {
   if (!session.value) return;
   saving.value = true;
   try {
+    try {
+      const kg = Math.round(latestBodyWeight(props.bodyWeights));
+      const result = await analyzeWorkout(session.value, kg);
+      session.value.burn = {
+        calories:           result.calories,
+        resistanceCalories: result.resistanceCalories,
+        cardioCalories:     result.cardioCalories,
+        notes:              result.notes,
+        model:              result.model,
+        analyzedAt:         new Date().toISOString(),
+      };
+    } catch (e) {
+      ElMessage.warning(`Calorie burn estimate failed, using fallback: ${e.message}`);
+    }
     emit('save', deepClone(session.value));
     ElMessage({ message: 'Workout saved!', type: 'success', duration: 2000 });
     if (!editMode.value) {

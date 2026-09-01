@@ -16,6 +16,16 @@ function apiDevServer() {
           res.end(JSON.stringify({ error: e.message }));
         }
       });
+      server.middlewares.use('/api/analyze-workout', async (req, res) => {
+        try {
+          const mod = await server.ssrLoadModule('/api/analyze-workout.js');
+          await mod.default(req, res);
+        } catch (e) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
     },
   };
 }

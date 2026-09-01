@@ -138,6 +138,7 @@
         <LogWorkout
           v-else-if="view === 'log'"
           :plan="plan" :sessions="sessions"
+          :body-weights="bodyWeights"
           :edit-session="editingSession"
           :preloaded-template="preloadedTemplate"
           @save="onSessionSaved"
