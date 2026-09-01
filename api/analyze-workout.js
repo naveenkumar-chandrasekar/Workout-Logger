@@ -1,37 +1,81 @@
 const GROQ_URL   = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
-const WORKOUT_SCHEMA = {
-  name: 'workout_burn',
+// The LLM only judges intensity (MET) per item — it never touches the final
+// arithmetic. Letting a model output the finished calorie number directly is
+// unreliable: it isn't computing anything, it's pattern-matching to a
+// plausible-sounding figure, so identical input can swing wildly between
+// calls (e.g. 122 vs 852 kcal for the same session). MET is a well-known,
+// bounded quantity models can classify consistently; the kcal = MET x 3.5 x
+// kg / 200 x minutes conversion is done here in JS so it's exact and
+// reproducible every time.
+const MINUTES_PER_SET = 3;
+const RESISTANCE_MET_RANGE   = [2, 10];
+const CARDIO_MET_RANGE       = [2, 14];
+const DEFAULT_RESISTANCE_MET = 5;
+const DEFAULT_CARDIO_MET     = 6;
+
+function metKcal(met, kg, minutes) {
+  return (met * 3.5 * kg) / 200 * minutes;
+}
+
+function clamp(value, [lo, hi], fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+const MET_SCHEMA = {
+  name: 'workout_mets',
   strict: true,
   schema: {
     type: 'object',
     properties: {
-      resistanceCalories: { type: 'number' },
-      cardioCalories:     { type: 'number' },
-      calories:            { type: 'number' },
-      notes:               { type: 'string' },
+      exercises: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            met:  { type: 'number' },
+          },
+          required: ['name', 'met'],
+          additionalProperties: false,
+        },
+      },
+      cardio: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            activity: { type: 'string' },
+            met:      { type: 'number' },
+          },
+          required: ['activity', 'met'],
+          additionalProperties: false,
+        },
+      },
+      notes: { type: 'string' },
     },
-    required: ['resistanceCalories', 'cardioCalories', 'calories', 'notes'],
+    required: ['exercises', 'cardio', 'notes'],
     additionalProperties: false,
   },
 };
 
 const SHAPE_HINT = `Reply with JSON only, in exactly this shape:
-{"resistanceCalories":0,"cardioCalories":0,"calories":0,"notes":"string"}`;
+{"exercises":[{"name":"string","met":0}],"cardio":[{"activity":"string","met":0}],"notes":"string"}`;
 
-const SYSTEM_PROMPT = `You are an exercise physiologist estimating calories burned in a single training session.
+const SYSTEM_PROMPT = `You are an exercise physiologist. You are given an athlete's bodyweight and a list of resistance exercises and cardio activities from one training session.
 
-You are given the athlete's bodyweight in kg, a list of resistance exercises with the sets actually completed (reps and weight in kg per set), and any cardio performed (activity and duration in minutes).
+Your ONLY job is to assign each item a MET (Metabolic Equivalent of Task) value from the Compendium of Physical Activities. Do NOT compute calories, durations, or totals — the server does that arithmetic deterministically from the MET value you return, so it must be your honest intensity judgment, not a placeholder.
 
 Rules:
-- Estimate calorie burn holistically from training volume (sets x reps x weight), exercise type (compound lifts recruit more muscle mass and burn more than isolation), time under tension including rest between sets, and the athlete's bodyweight — do not apply one fixed MET value to everything.
-- For bodyweight or very light resistance exercises, estimate effective intensity from reps and exercise type instead of the raw weight number.
-- For cardio, use standard MET values for the named activity, scaled by bodyweight and duration.
-- resistanceCalories + cardioCalories MUST equal calories.
-- Round all calorie values to whole numbers.
-- notes: one short sentence on key assumptions made. Empty string if none.
-- If there are no completed sets and no cardio, return all zeros.`;
+- Resistance exercise MET roughly: 3-4 for light machine/isolation work, 4-6 for moderate free-weight isolation or light compound work, 6-8 for heavy compound free-weight lifting (squat, deadlift, bench, row) at a load that is challenging for that athlete's bodyweight.
+- Judge "heavy" relative to the athlete's own bodyweight and the reps performed — the same absolute kg is harder for a lighter athlete, or at low reps near failure, than for a heavier athlete at high reps.
+- Compound, multi-joint movements get a higher MET than isolation movements at similar relative load.
+- Cardio MET follows standard Compendium values for the named activity (e.g. treadmill jogging ~9-11, brisk walking ~3.5-5, moderate stationary cycling ~7, vigorous cycling ~10-12).
+- Return exactly one entry per exercise name and per cardio activity given, using the exact same name/activity string you were given.
+- notes: one short sentence on key assumptions made. Empty string if none.`;
 
 function describeSession(exercises, cardio, bodyWeightKg) {
   const lines = [`Bodyweight: ${bodyWeightKg} kg`];
@@ -48,8 +92,6 @@ function describeSession(exercises, cardio, bodyWeightKg) {
     lines.push('Cardio:');
     cardio.forEach(c => lines.push(`- ${c.activity}: ${c.minutes} min`));
   }
-
-  if (!exercises.length && !cardio.length) lines.push('No exercises or cardio logged.');
 
   return lines.join('\n');
 }
@@ -74,13 +116,15 @@ function send(res, status, payload) {
 async function callGroq(apiKey, text, strict) {
   const body = {
     model: GROQ_MODEL,
-    temperature: 0.2,
+    // Classification, not generation — zero temperature for the most
+    // reproducible MET judgment the model can give.
+    temperature: 0,
     // Groq reserves this against the tokens-per-minute quota whether it is used
     // or not, so it has to stay well under the 8K TPM free-tier cap — the prompt
     // and a possible fallback retry share the same budget.
-    max_completion_tokens: 1200,
+    max_completion_tokens: 900,
     response_format: strict
-      ? { type: 'json_schema', json_schema: WORKOUT_SCHEMA }
+      ? { type: 'json_schema', json_schema: MET_SCHEMA }
       : { type: 'json_object' },
     messages: [
       { role: 'system', content: strict ? SYSTEM_PROMPT : `${SYSTEM_PROMPT}\n\n${SHAPE_HINT}` },
@@ -149,19 +193,24 @@ export default async function handler(req, res) {
   try { parsed = JSON.parse(content); }
   catch { return send(res, 502, { error: 'Groq returned malformed JSON' }); }
 
-  const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const metByExercise = new Map((Array.isArray(parsed.exercises) ? parsed.exercises : []).map(e => [e.name, e.met]));
+  const metByCardio   = new Map((Array.isArray(parsed.cardio)    ? parsed.cardio    : []).map(c => [c.activity, c.met]));
 
-  const resistanceCalories = Math.round(num(parsed.resistanceCalories));
-  const cardioCalories     = Math.round(num(parsed.cardioCalories));
+  const resistanceCalories = Math.round(exList.reduce((a, ex) => {
+    const met     = clamp(metByExercise.get(ex.name), RESISTANCE_MET_RANGE, DEFAULT_RESISTANCE_MET);
+    const minutes = ex.sets.length * MINUTES_PER_SET;
+    return a + metKcal(met, kg, minutes);
+  }, 0));
 
-  // json_object mode isn't schema-bound, so the total can come back missing or
-  // inconsistent with the parts. Trust the parts and derive the total from them.
-  const calories = resistanceCalories + cardioCalories || Math.round(num(parsed.calories));
+  const cardioCalories = Math.round(cardioList.reduce((a, c) => {
+    const met = clamp(metByCardio.get(c.activity), CARDIO_MET_RANGE, DEFAULT_CARDIO_MET);
+    return a + metKcal(met, kg, c.minutes);
+  }, 0));
 
   return send(res, 200, {
     resistanceCalories,
     cardioCalories,
-    calories,
+    calories: resistanceCalories + cardioCalories,
     notes: String(parsed.notes || ''),
     model: GROQ_MODEL,
   });
