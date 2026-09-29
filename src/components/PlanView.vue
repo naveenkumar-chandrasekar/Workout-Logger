@@ -6,6 +6,9 @@
         <div class="page-title">Weekly Plan</div>
         <div class="page-subtitle">6-day split · tap Edit to customise any day</div>
       </div>
+      <el-button size="small" plain @click="resetToDefault" style="border-radius:8px; font-weight:600;">
+        <el-icon style="margin-right:3px;"><RefreshLeft /></el-icon>Reset to default
+      </el-button>
     </div>
 
     <!-- Day blocks -->
@@ -161,8 +164,9 @@
 
 <script setup>
 import { ref } from 'vue';
-import { Edit, Delete, Plus } from '@element-plus/icons-vue';
-import { deepClone, muscleStyle, MUSCLE_COLORS } from '../data/workoutPlan.js';
+import { ElMessageBox } from 'element-plus';
+import { Edit, Delete, Plus, RefreshLeft } from '@element-plus/icons-vue';
+import { deepClone, muscleStyle, MUSCLE_COLORS, DEFAULT_PLAN } from '../data/workoutPlan.js';
 import { useDragSort } from '../composables/useDragSort.js';
 
 const props = defineProps({ plan: Object });
@@ -210,6 +214,19 @@ function saveDay() {
   updated[editingDayNum.value] = editDayData.value;
   emit('update-plan', updated);
   drawerOpen.value = false;
+}
+
+async function resetToDefault() {
+  try {
+    await ElMessageBox.confirm(
+      'Replace your current plan with the default 6-day plan? Any edits you made to the plan will be lost. Logged workouts are not affected.',
+      'Reset plan',
+      { confirmButtonText: 'Reset', cancelButtonText: 'Cancel', type: 'warning' }
+    );
+  } catch {
+    return;
+  }
+  emit('update-plan', deepClone(DEFAULT_PLAN));
 }
 </script>
 
